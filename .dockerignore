@@ -1,0 +1,14 @@
+bin/
+**/node_modules/
+internal/webui/dist/
+.git/
+.github/
+.dev-tls/
+.env
+.env.*
+.dev-data/
+.e2e-data/
+/backup/
+test-results/
+playwright-report/
+tests/visual/captures/

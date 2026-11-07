@@ -1,0 +1,71 @@
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.triple {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.quantity {
+  max-width: 120px;
+}
+
+.measurements {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.measurements legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+}
+
+.measurementsError {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-label);
+}
+
+.sizeRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.8fr);
+  gap: var(--space-3);
+}
+
+.weightRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+  gap: var(--space-3);
+  max-width: 50%;
+}
+
+@media (max-width: 767px) {
+  .pair,
+  .triple {
+    grid-template-columns: 1fr;
+  }
+
+  .sizeRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .weightRow {
+    max-width: none;
+  }
+}

@@ -1,0 +1,46 @@
+# Optional recipe: Keeps plus Caddy as an automatic-HTTPS reverse proxy.
+# Caddy is an extra container. It uses host networking so it can reach
+# Keeps on 127.0.0.1:6030 and obtain certificates on ports 80/443.
+# Your domain's DNS must point at this host. See docs/install.md.
+services:
+  keeps:
+    image: ghcr.io/aiulian25/keeps:0 # the newest 0.x; see docs/upgrade.md
+    user: "74532:74532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "127.0.0.1:6030:6030"
+    environment:
+      APP_ORIGIN: https://${KEEPS_DOMAIN:?Set KEEPS_DOMAIN in .env}
+    volumes:
+      - keeps_data:/data
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      test: [CMD, /app/keeps, healthcheck]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  caddy:
+    image: caddy:2.10-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    network_mode: host
+    environment:
+      KEEPS_DOMAIN: ${KEEPS_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  keeps_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,14 @@
+{
+  "name": "keeps",
+  "private": true,
+  "scripts": {
+    "prettier-format": "prettier . --write",
+    "prettier-check": "prettier . --check",
+    "lint": "npm --prefix web run lint && go vet ./... && test -z \"$(gofmt -l .)\"",
+    "test": "go test ./...",
+    "build": "npm --prefix web run build && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags \"-s -w\" -o bin/keeps ./cmd/keeps"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  }
+}

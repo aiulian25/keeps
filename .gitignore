@@ -1,0 +1,16 @@
+bin/
+**/node_modules/
+internal/webui/dist/
+.dev-data/
+.e2e-data/
+test-results/
+playwright-report/
+.dev-tls/
+.claude/
+build and push.md
+/backup/
+.env
+.env.*
+!.env.example
+docker-compose.dev.yml
+tests/visual/captures/

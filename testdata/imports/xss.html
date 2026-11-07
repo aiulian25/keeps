@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Gadget</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "Gadget <script>alert('name')<\/script><img src=x onerror=alert(1)> Pro",
+        "description": "&lt;b&gt;Bold&lt;/b&gt; claim &amp;lt;iframe src=javascript:alert(2)&amp;gt; <style>body{}</style>end",
+        "brand": "<a href=\"javascript:alert(3)\">Acme</a>",
+        "image": [
+          "javascript:alert(4)",
+          "data:image/png;base64,AAAA",
+          "https://cdn.example.test/gadget.jpg"
+        ]
+      }
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Trail Bottle</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://shop.example.test/bottle#page",
+            "name": "Trail Bottle page"
+          },
+          { "@type": "BreadcrumbList", "itemListElement": [] },
+          {
+            "@type": "Product",
+            "name": "Trail Bottle 750ml",
+            "image": {
+              "@type": "ImageObject",
+              "url": "https://cdn.example.test/bottle.jpg"
+            },
+            "offers": {
+              "@type": "Offer",
+              "priceSpecification": {
+                "@type": "UnitPriceSpecification",
+                "price": 24.5,
+                "priceCurrency": "USD"
+              }
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body></body>
+</html>

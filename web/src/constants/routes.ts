@@ -1,0 +1,18 @@
+export const ROUTES = {
+  home: "/",
+  setup: "/setup",
+  signIn: "/sign-in",
+  recover: "/recover",
+  items: "/items",
+  item: (id: number | string) => `/items/${id}`,
+  itemDocuments: (id: number | string) => `/items/${id}/documents`,
+  add: "/add",
+  addManual: "/add/manual",
+  addImport: (id: string) => `/add/import/${id}`,
+  addFromPage: "/add/from-page",
+  addButton: "/add/button",
+  organise: (kind: string = "rooms") => `/organise/${kind}`,
+  documents: "/documents",
+  trash: "/trash",
+  account: (tab: string = "account") => `/account/${tab}`,
+} as const;

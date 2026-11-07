@@ -1,0 +1,88 @@
+.banner {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+}
+
+.banner[data-has-photo] {
+  min-height: 190px;
+  color: #fff;
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Fixed scrim, not a theme token: the text sits on a photo in both themes. */
+.banner[data-has-photo]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(20 16 14 / 75%), rgb(20 16 14 / 25%));
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+}
+
+.words {
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--font-size-title);
+}
+
+.description {
+  max-width: 60ch;
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-label);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.banner:not([data-has-photo]) .description,
+.banner:not([data-has-photo]) .facts {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+.edit {
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .banner[data-has-photo] {
+    min-height: 140px;
+  }
+
+  .content {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .editLabel {
+    display: none;
+  }
+}

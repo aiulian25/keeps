@@ -1,0 +1,38 @@
+# Keeps, from the published image. Needs a .env next to this file: copy .env.example and fill it in.
+# Put it behind your HTTPS reverse proxy, pointed at port 6030. No proxy? See deploy/ and docs/install.md.
+services:
+  keeps:
+    # The newest 0.x. Keeps backs up its database before changing it, and never upgrades by itself: run
+    # "docker compose pull && docker compose up -d" when you choose to.
+    image: ghcr.io/aiulian25/keeps:0
+    restart: unless-stopped
+    stop_grace_period: 30s
+    env_file: .env
+    environment:
+      APP_ORIGIN: ${APP_ORIGIN:?set APP_ORIGIN in .env}
+    user: "74532:74532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      # This machine only by default. Set KEEPS_BIND_ADDRESS when your proxy runs on another machine or in a
+      # container that can't reach 127.0.0.1 here.
+      - "${KEEPS_BIND_ADDRESS:-127.0.0.1}:${KEEPS_PORT:-6030}:6030"
+    volumes:
+      # Local disk only: the SQLite database must not live on SMB or NFS.
+      - keeps_data:/data
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    healthcheck:
+      test: [CMD, /app/keeps, healthcheck]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+
+volumes:
+  keeps_data:

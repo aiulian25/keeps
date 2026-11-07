@@ -1,0 +1,41 @@
+# Keeps with TLS handled by Keeps itself, for hosts without a reverse proxy.
+# Put your trusted certificate and key in ./certs (readable by UID 74532) and
+# set APP_ORIGIN in .env (from the root .env.example) to the hostname on that
+# certificate. See docs/install.md.
+services:
+  keeps:
+    image: ghcr.io/aiulian25/keeps:0 # the newest 0.x; see docs/upgrade.md
+    user: "74532:74532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "443:6030"
+    environment:
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN in .env}
+      KEEPS_TLS_CERT_FILE: /certs/fullchain.pem
+      KEEPS_TLS_KEY_FILE: /certs/privkey.pem
+    volumes:
+      - keeps_data:/data
+      - ./certs:/certs:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      test: [CMD, /app/keeps, healthcheck]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  keeps_data:

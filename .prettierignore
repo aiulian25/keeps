@@ -1,0 +1,10 @@
+bin/
+internal/webui/dist/
+**/node_modules/
+package-lock.json
+.dev-data/
+.e2e-data/
+test-results/
+web/playwright-report/
+tests/visual/captures/
+.dev-tls/

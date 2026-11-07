@@ -1,0 +1,117 @@
+.choices {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.choice:has(:checked) {
+  border-color: var(--color-accent-border);
+  background: var(--color-surface-raised);
+}
+
+.choice input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  flex: none;
+  accent-color: var(--color-accent);
+}
+
+.choiceText {
+  display: grid;
+  gap: 2px;
+  font-weight: var(--font-weight-medium);
+}
+
+.choiceDetail {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+
+.warning {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-danger-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-label);
+}
+
+.warning svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--color-danger);
+}
+
+.fileInput {
+  min-height: var(--control-height);
+  padding: var(--space-1);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-field);
+}
+
+.stages {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-label);
+}
+
+.stages li {
+  color: var(--color-text-subtle);
+}
+
+.stages li[data-state="active"] {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.stages li[data-state="done"] {
+  color: var(--color-success);
+}
+
+.progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--color-accent);
+}
+
+@media (pointer: coarse) {
+  .fileInput {
+    min-height: var(--control-height-touch);
+  }
+}
+
+.stages li[data-state="done"]::before {
+  content: "✓ ";
+}
+
+.missingList {
+  max-height: 180px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-6);
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-label);
+  overflow-wrap: anywhere;
+}

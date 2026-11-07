@@ -1,0 +1,76 @@
+.region {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 50;
+  display: grid;
+  gap: var(--space-2);
+  width: min(380px, calc(100vw - 32px));
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-success-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-raised);
+}
+
+.toast[data-tone="error"] {
+  background: var(--color-danger-surface);
+  border-color: var(--color-danger);
+}
+
+.icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--color-success);
+}
+
+.text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  font-size: var(--font-size-label);
+}
+
+.text span {
+  color: var(--color-text-muted);
+}
+
+.action {
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-text);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.close svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 767px) {
+  .region {
+    bottom: calc(var(--bottom-bar-height) + var(--space-3));
+    right: var(--space-4);
+  }
+}

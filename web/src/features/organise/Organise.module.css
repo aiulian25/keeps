@@ -1,0 +1,383 @@
+.page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.tab svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tab:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.tabActive,
+.tabActive:hover {
+  border-color: transparent;
+  background: var(--color-accent-soft);
+  color: var(--color-on-accent-soft);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+}
+
+.row:hover {
+  border-color: var(--color-border-strong);
+}
+
+.rowLink {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 72px;
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-5);
+  border-radius: var(--radius-large);
+  color: inherit;
+  text-decoration: none;
+}
+
+.rowIcon {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  color: var(--color-text-muted);
+}
+
+.rowText {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.rowName {
+  overflow: hidden;
+  font-size: var(--font-size-section);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thumbnails {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.thumbnails img,
+.moreTile {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  object-fit: cover;
+  background: var(--color-surface-raised);
+}
+
+.moreTile {
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-medium);
+}
+
+.chevron {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-muted);
+}
+
+.empty {
+  padding: var(--space-5);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-large);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.select {
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-field);
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 1px var(--color-focus);
+}
+
+@media (max-width: 767px) {
+  .thumbnails {
+    display: none;
+  }
+
+  .rowLink {
+    padding-left: var(--space-4);
+  }
+}
+
+@media (pointer: coarse) {
+  .tab,
+  .select {
+    min-height: var(--control-height-touch);
+  }
+}
+
+/* View switch */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.toolbar > :last-child {
+  margin-left: auto;
+}
+
+.costSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--font-size-label);
+}
+
+.cost {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+}
+
+.viewSwitch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.viewButton {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.viewButton:hover {
+  color: var(--color-text);
+}
+
+.viewButton[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-on-accent-soft);
+}
+
+.viewButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Shared text helpers */
+.oneLine {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twoLines {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Wide: room photo in place of the icon */
+.rowPhoto {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+
+/* List */
+.compactRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.compactLink {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  color: inherit;
+  text-decoration: none;
+}
+
+.compactLink:hover {
+  background: var(--color-surface-hover);
+}
+
+.compactIcon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-muted);
+}
+
+.compactDescription {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Cards */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+}
+
+.card:hover {
+  border-color: var(--color-border-strong);
+}
+
+.cardLink {
+  display: grid;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cardCover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+}
+
+.cardCover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardCover svg {
+  width: 40px;
+  height: 40px;
+}
+
+.cardText {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) var(--space-3) var(--space-4);
+}
+
+.cardMenu {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+/* Room dialog */
+.fieldLabel {
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-medium);
+}
+
+.roomPhotoPreview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.roomPhotoPreview img {
+  width: 96px;
+  height: 72px;
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+
+@media (max-width: 767px) {
+  .cardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compactDescription {
+    display: none;
+  }
+}

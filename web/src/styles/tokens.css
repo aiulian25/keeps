@@ -1,0 +1,112 @@
+/* Keeps design tokens. Dark values were sampled from the chosen Room First
+   board and adjusted only where a contrast check required it; light values
+   are the inferred companion theme. See docs/decisions/0004-tokens.md. */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: #221d1d;
+  --color-sidebar: #1c1817;
+  --color-surface: #2b2725;
+  --color-surface-raised: #3b3632;
+  --color-surface-hover: #332e2b;
+  --color-field: #2b2829;
+  --color-border: #433b36;
+  --color-border-strong: #85776c;
+  --color-text: #f1ece6;
+  --color-text-muted: #b0a69d;
+  --color-text-subtle: #9e948b;
+  --color-accent: #d3b393;
+  --color-accent-hover: #ddc1a4;
+  --color-on-accent: #2a2118;
+  --color-accent-soft: #6b5a49;
+  --color-on-accent-soft: #f7efe6;
+  --color-accent-text: #e2c7a8;
+  --color-accent-border: #d3b393;
+  --color-chip: #3d3631;
+  --color-button-secondary: #322e2b;
+  --color-success-surface: #3a3a2e;
+  --color-success: #c9c09d;
+  --color-danger: #e0816f;
+  --color-danger-surface: #4a2b25;
+  --color-file-pdf: #bd4131;
+  --color-on-file-pdf: #ffffff;
+  --color-focus: #e8cfae;
+  --color-overlay: rgb(10 8 7 / 70%);
+  --shadow-raised: 0 8px 24px rgb(0 0 0 / 35%);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-canvas: #f5f2ee;
+  --color-sidebar: #ece7e1;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-hover: #f1ece6;
+  --color-field: #ffffff;
+  --color-border: #d8d0c7;
+  --color-border-strong: #8b7f75;
+  --color-text: #24201f;
+  --color-text-muted: #5f5650;
+  --color-text-subtle: #776d66;
+  --color-accent: #d3b393;
+  --color-accent-hover: #c9a684;
+  --color-on-accent: #2a2118;
+  --color-accent-soft: #e8dccd;
+  --color-on-accent-soft: #2a2118;
+  --color-accent-text: #7a5c3e;
+  --color-accent-border: #8c6a4a;
+  --color-chip: #ebe4dc;
+  --color-button-secondary: #ffffff;
+  --color-success-surface: #eef0e2;
+  --color-success: #4f5a32;
+  --color-danger: #a8372a;
+  --color-danger-surface: #f8e3df;
+  --color-file-pdf: #b23a2b;
+  --color-on-file-pdf: #ffffff;
+  --color-focus: #7a5c3e;
+  --color-overlay: rgb(36 32 31 / 45%);
+  --shadow-raised: 0 8px 24px rgb(36 32 31 / 14%);
+}
+
+:root {
+  --font-family:
+    "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-size-title: 1.375rem;
+  --font-size-section: 1.0625rem;
+  --font-size-body: 0.875rem;
+  --font-size-label: 0.8125rem;
+  --font-size-small: 0.75rem;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height: 1.45;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-small: 6px;
+  --radius: 8px;
+  --radius-large: 12px;
+
+  --control-height: 36px;
+  --control-height-touch: 44px;
+  --sidebar-width: 232px;
+  --sidebar-rail-width: 64px;
+  --bottom-bar-height: 60px;
+  --content-max: 1920px;
+  --reading-max: 1080px;
+  --form-max: 720px;
+
+  --motion: 150ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms linear;
+  }
+}

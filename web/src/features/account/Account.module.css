@@ -1,0 +1,326 @@
+.page {
+  display: grid;
+  gap: var(--space-5);
+  max-width: var(--form-max);
+}
+
+.section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sectionHeader > svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.card {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-2) var(--space-4);
+}
+
+.row + .row {
+  border-top: 1px solid var(--color-border);
+}
+
+.rowIcon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  color: var(--color-text-muted);
+}
+
+.rowIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.rowText {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.rowLabel {
+  font-weight: var(--font-weight-medium);
+}
+
+.optional {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+
+.rowDescription {
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+}
+
+.rowValue {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.rowAction {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-small);
+  background: var(--color-accent-soft);
+  color: var(--color-on-accent-soft);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+}
+
+.subList {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-field);
+}
+
+.inlineForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.inlineField {
+  flex: 1 1 200px;
+}
+
+.inlineField > label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.inlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.secondFactor {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.linkButton {
+  justify-self: start;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-text);
+  font-size: var(--font-size-label);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* Appearance cards (panel 11). The previews use the platform's own light and
+   dark canvas colours, so each card shows its theme whichever is active. */
+.themeChoices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.themeCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.themeCard:hover {
+  border-color: var(--color-border-strong);
+}
+
+.themeCard:has(:checked) {
+  border-color: var(--color-accent-border);
+  background: var(--color-surface-raised);
+}
+
+.themeCard:has(:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.themePreview {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  flex: none;
+  width: 48px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: Canvas;
+}
+
+.themePreview[data-preview="dark"] {
+  color-scheme: dark;
+}
+
+.themePreview[data-preview="light"] {
+  color-scheme: light;
+}
+
+.themePreview span {
+  height: 4px;
+  border-radius: 2px;
+  background: CanvasText;
+  opacity: 0.35;
+}
+
+.themePreview span:first-child {
+  width: 60%;
+  background: var(--color-accent);
+  opacity: 1;
+}
+
+.themeText {
+  display: grid;
+  flex: 1;
+}
+
+.themeRadio {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.themeRadio:focus-visible {
+  outline: none;
+}
+
+/* Authenticator setup and recovery codes */
+.qrCode {
+  width: 184px;
+  height: 184px;
+  justify-self: center;
+  border-radius: var(--radius);
+  background: Canvas;
+  color-scheme: light;
+}
+
+.manualKey {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.manualKey code,
+.codeList code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  letter-spacing: 0.04em;
+}
+
+.manualKey code {
+  flex: 1;
+  word-break: break-all;
+}
+
+.codeList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+  border-radius: var(--radius);
+  background: var(--color-field);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  cursor: pointer;
+}
+
+.checkbox input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+@media (max-width: 767px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .rowText {
+    flex-basis: calc(100% - 40px);
+  }
+
+  .rowValue,
+  .rowAction {
+    margin-left: 36px;
+  }
+}
+
+@media (pointer: coarse) {
+  .linkButton,
+  .checkbox {
+    min-height: var(--control-height-touch);
+  }
+}

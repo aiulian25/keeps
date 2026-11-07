@@ -1,0 +1,149 @@
+.field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.optional {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+
+.control {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  min-height: var(--control-height);
+  background: var(--color-field);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  transition: border-color var(--motion);
+}
+
+.control:focus-within {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 1px var(--color-focus);
+}
+
+.control[data-invalid],
+.textarea[data-invalid] {
+  border-color: var(--color-danger);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  min-height: calc(var(--control-height) - 2px);
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  outline: none;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.prefix {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-left: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.prefix svg {
+  width: 16px;
+  height: 16px;
+}
+
+.reveal {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.reveal svg {
+  width: 16px;
+  height: 16px;
+}
+
+.textarea {
+  min-height: 88px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-field);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  resize: vertical;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 1px var(--color-focus);
+}
+
+.hint {
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+}
+
+.error {
+  font-size: var(--font-size-small);
+  color: var(--color-danger);
+}
+
+.formError {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+  font-size: var(--font-size-label);
+}
+
+@media (pointer: coarse) {
+  .control {
+    min-height: var(--control-height-touch);
+  }
+}
+
+.currencyInput {
+  flex: 0 0 4.2em;
+  text-transform: uppercase;
+  border-left: 1px solid var(--color-border);
+}
+
+.inlineToggle {
+  padding: 0 10px;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-text);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.select {
+  appearance: auto;
+  cursor: pointer;
+}
+
+.select option {
+  background: var(--color-field);
+  color: var(--color-text);
+}

@@ -1,0 +1,199 @@
+.saved {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-medium);
+  opacity: 0;
+  transition: opacity var(--motion);
+}
+
+.saved[data-visible] {
+  opacity: 1;
+  background: var(--color-success-surface);
+  border: 1px solid var(--color-success);
+  color: var(--color-success);
+}
+
+.saved svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.tabActive {
+  background: var(--color-accent-soft);
+  color: var(--color-on-accent-soft);
+}
+
+.tabActive:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-on-accent-soft);
+}
+
+.disclosure {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.disclosureButton {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--space-1);
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.disclosureButton svg {
+  width: 16px;
+  height: 16px;
+  transition: transform var(--motion);
+}
+
+.disclosureButton svg[data-open] {
+  transform: rotate(180deg);
+}
+
+.disclosurePanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.disclosurePanel[hidden] {
+  display: none;
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.menuButton {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.menuButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.menuButton svg {
+  width: 18px;
+  height: 18px;
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  display: grid;
+  min-width: 170px;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+.menu button {
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu button:hover,
+.menu button:focus-visible {
+  background: var(--color-surface-hover);
+}
+
+.menu button[data-tone="danger"] {
+  color: var(--color-danger);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--color-chip);
+  color: var(--color-text);
+  font-size: var(--font-size-label);
+  white-space: nowrap;
+}
+
+button.chip {
+  cursor: pointer;
+}
+
+button.chip:hover {
+  border-color: var(--color-border-strong);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-on-accent-soft);
+}
+
+.chip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.loading {
+  padding: var(--space-5) 0;
+  color: var(--color-text-muted);
+}
+
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+}

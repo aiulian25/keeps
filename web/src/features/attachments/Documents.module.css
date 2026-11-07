@@ -1,0 +1,159 @@
+.page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.titleLead,
+.titleName {
+  display: block;
+}
+
+.titleName {
+  font-size: var(--font-size-section);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.rowText {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-weight-medium);
+}
+
+.pdfBadge,
+.fileBadge,
+.thumbnail {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-small);
+}
+
+.pdfBadge {
+  display: grid;
+  place-items: center;
+  background: var(--color-file-pdf);
+  color: var(--color-on-file-pdf);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+}
+
+.fileBadge {
+  display: grid;
+  place-items: center;
+  background: var(--color-chip);
+  color: var(--color-text-muted);
+}
+
+.fileBadge svg {
+  width: 18px;
+  height: 18px;
+}
+
+.thumbnail {
+  object-fit: cover;
+  background: var(--color-chip);
+}
+
+.itemLink,
+.textLink {
+  justify-self: start;
+  color: var(--color-accent-text);
+  font-size: var(--font-size-label);
+  text-underline-offset: 3px;
+}
+
+.section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.notes {
+  padding: var(--space-3) var(--space-4);
+  white-space: pre-wrap;
+}
+
+/* Label kept for screen readers; the reference shows a bare search field. */
+.searchField > label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .tiles {
+    grid-template-columns: 1fr;
+  }
+
+  .downloadText {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .itemLink,
+  .textLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-height-touch);
+  }
+}
+
+.filenameButton {
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.filenameButton:hover {
+  text-decoration: underline;
+}
+
+.loadMore {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+}

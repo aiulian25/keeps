@@ -1,0 +1,183 @@
+.entry {
+  display: grid;
+  gap: var(--space-4);
+  width: min(var(--form-max), 100%);
+  margin: var(--space-6) auto 0;
+}
+
+.entryHeading {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  text-align: center;
+}
+
+.headingIcon {
+  width: 32px;
+  height: 32px;
+  color: var(--color-text);
+}
+
+.entryForm {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* The label stays for screen readers; the reference shows the field alone. */
+.urlField > label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.inlineAction {
+  justify-self: start;
+}
+
+.divider {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+  text-align: center;
+}
+
+.alternatives {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.manual {
+  display: grid;
+  gap: var(--space-4);
+  max-width: var(--reading-max);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.titleRow svg {
+  width: 22px;
+  height: 22px;
+}
+
+.notes {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.zones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+@media (max-width: 767px) {
+  .entry {
+    margin-top: var(--space-4);
+  }
+
+  .alternatives,
+  .zones {
+    grid-template-columns: 1fr;
+  }
+}
+
+.zoneSlot {
+  display: grid;
+  min-width: 0;
+}
+
+.buttonSetup {
+  max-width: var(--form-max);
+}
+
+.buttonCard {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.buttonSteps {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.bookmarkButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  cursor: grab;
+}
+
+.bookmarkButton svg {
+  width: 14px;
+  height: 14px;
+}
+
+.buttonLink {
+  justify-self: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.cancelButton {
+  justify-self: center;
+}
+
+.presetList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.presetOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.presetPreview {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.presetPreview p,
+.presetPreview ul {
+  margin: 0;
+}
+
+.presetSave {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}

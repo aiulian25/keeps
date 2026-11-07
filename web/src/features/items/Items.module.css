@@ -1,0 +1,412 @@
+/* Room chips (panel 03) */
+.roomBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.roomRow {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.roomChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--color-chip);
+  color: var(--color-text);
+  font-size: var(--font-size-label);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.roomChip:hover {
+  border-color: var(--color-border-strong);
+}
+
+.roomChip[aria-current="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-on-accent-soft);
+}
+
+.roomChip svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Search row and toolbar */
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.searchForm {
+  flex: 1;
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.toolbarEnd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.select {
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-field);
+  color: var(--color-text);
+  font-size: var(--font-size-label);
+}
+
+.viewToggle {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.viewToggle button[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-on-accent-soft);
+}
+
+.filterPanel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.filterField {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-label);
+}
+
+.filterField .select {
+  min-width: 150px;
+  min-height: var(--control-height);
+}
+
+.filterFlags {
+  display: flex;
+  gap: var(--space-4);
+  min-height: var(--control-height);
+  align-items: center;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-label);
+  cursor: pointer;
+}
+
+.checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+}
+
+/* Grid of cards */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.card:hover {
+  border-color: var(--color-border-strong);
+}
+
+.card:has(.coverLink:focus-visible),
+.row:has(.coverLink:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.cardPhoto {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--color-surface-raised);
+}
+
+.noPhoto {
+  display: grid;
+  place-items: center;
+  color: var(--color-text-subtle);
+  background: var(--color-surface-raised);
+}
+
+.noPhoto svg {
+  width: 28px;
+  height: 28px;
+}
+
+.cardBody {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-2);
+  flex: 1;
+  grid-template-rows: auto auto 1fr;
+}
+
+.cardName {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+}
+
+/* The whole card is one link; the overflow menu sits above the stretched area. */
+.coverLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.coverLink:focus-visible {
+  outline: none;
+}
+
+.coverLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.price {
+  font-weight: var(--font-weight-semibold);
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-self: end;
+  min-height: 30px;
+}
+
+.roomTag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-small);
+  background: var(--color-chip);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roomTag svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+.actions {
+  position: relative;
+  z-index: 1;
+  margin-left: auto;
+}
+
+/* Compact list rows (UX-04), styled like panel 10 file rows */
+.list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns:
+    40px minmax(0, 3fr) minmax(0, 1.5fr) minmax(0, 1.5fr)
+    minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.row:hover {
+  border-color: var(--color-border-strong);
+}
+
+.rowPhoto {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-small);
+  object-fit: cover;
+}
+
+.rowPhoto.noPhoto svg {
+  width: 18px;
+  height: 18px;
+}
+
+.rowName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-weight-medium);
+}
+
+.rowMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.rowPrice {
+  text-align: right;
+  font-weight: var(--font-weight-medium);
+}
+
+/* Loading skeletons sized like the real content */
+.skeletonCard,
+.skeletonRow {
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.skeletonCard {
+  aspect-ratio: 4 / 4.6;
+}
+
+.skeletonRow {
+  height: 52px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeletonCard,
+  .skeletonRow {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Messages and footer */
+.message {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+}
+
+.messageActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.loadMore {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+}
+
+.quietLink {
+  padding-top: var(--space-4);
+  font-size: var(--font-size-label);
+}
+
+.quietLink a {
+  color: var(--color-text-muted);
+}
+
+.quietLink a:hover {
+  color: var(--color-text);
+}
+
+@media (pointer: coarse) {
+  .roomChip {
+    min-height: var(--control-height-touch);
+  }
+
+  .select {
+    min-height: var(--control-height-touch);
+  }
+}
+
+@media (max-width: 767px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .searchRow {
+    flex-wrap: wrap;
+  }
+
+  .searchForm {
+    flex-basis: 100%;
+  }
+
+  .row {
+    grid-template-columns: 40px minmax(0, 1fr) auto auto;
+  }
+
+  .row .rowMeta {
+    display: none;
+  }
+}

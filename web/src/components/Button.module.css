@@ -1,0 +1,121 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--motion),
+    border-color var(--motion);
+}
+
+.button svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent-border);
+  color: var(--color-on-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.secondary {
+  background: var(--color-button-secondary);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+.outline-accent {
+  background: transparent;
+  border-color: var(--color-accent-border);
+  color: var(--color-accent-text);
+}
+
+.outline-accent:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-text);
+  padding: 0 var(--space-2);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.danger {
+  background: var(--color-danger-surface);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.wide {
+  width: 100%;
+}
+
+.compact {
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-label);
+}
+
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.iconButton svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (pointer: coarse) {
+  .button {
+    min-height: var(--control-height-touch);
+  }
+
+  .iconButton {
+    width: var(--control-height-touch);
+    height: var(--control-height-touch);
+  }
+}
