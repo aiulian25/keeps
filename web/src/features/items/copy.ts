@@ -33,6 +33,10 @@ export const ITEM_COPY = {
   weightUnit: "Weight unit",
   fitNote: "Fitting note",
   fitNotePlaceholder: "e.g. Needs an 85 cm doorway; wall-mounted",
+  fitNoteCount: (length: number, maximum: number) =>
+    `${length} of ${maximum} characters`,
+  fitNoteTooLong: (length: number, maximum: number) =>
+    `The fitting note has ${length} characters; keep it to ${maximum}. Product details belong in Description.`,
   size: "Size",
   warranty: "Warranty",
   inWarranty: "In warranty",

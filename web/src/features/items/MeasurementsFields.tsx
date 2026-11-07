@@ -6,6 +6,9 @@ import { measurementsOrNull } from "./measurements";
 import styles from "./ItemFields.module.css";
 
 const DEFAULT_LENGTH_UNIT = "cm";
+const FIT_NOTE_MAXIMUM = 1000;
+/** The count appears once the note gets close to the limit. */
+const FIT_NOTE_COUNT_FROM = 800;
 const DEFAULT_WEIGHT_UNIT = "kg";
 
 const blank: Measurements = {
@@ -22,6 +25,7 @@ interface MeasurementsFieldsProps {
   value: Measurements | null;
   onChange: (value: Measurements | null) => void;
   error?: string;
+  fitNoteError?: string;
 }
 
 /** Optional size, weight and a fitting note; every value carries its unit. */
@@ -29,6 +33,7 @@ export function MeasurementsFields({
   value,
   onChange,
   error,
+  fitNoteError,
 }: MeasurementsFieldsProps) {
   const current = {
     ...blank,
@@ -38,6 +43,15 @@ export function MeasurementsFields({
   };
   const set = (field: keyof Measurements, next: string) =>
     onChange(measurementsOrNull({ ...current, [field]: next }));
+  const noteLength = [...current.fitNote].length;
+  const noteTooLong = noteLength > FIT_NOTE_MAXIMUM;
+  const noteHint =
+    noteLength >= FIT_NOTE_COUNT_FROM && !noteTooLong
+      ? ITEM_COPY.fitNoteCount(noteLength, FIT_NOTE_MAXIMUM)
+      : undefined;
+  const noteError = noteTooLong
+    ? ITEM_COPY.fitNoteTooLong(noteLength, FIT_NOTE_MAXIMUM)
+    : fitNoteError;
   const size = [
     { field: "width", label: ITEM_COPY.width },
     { field: "height", label: ITEM_COPY.height },
@@ -88,6 +102,8 @@ export function MeasurementsFields({
         value={current.fitNote}
         onValueChange={(next) => set("fitNote", next)}
         placeholder={ITEM_COPY.fitNotePlaceholder}
+        hint={noteHint}
+        error={noteError}
       />
     </fieldset>
   );

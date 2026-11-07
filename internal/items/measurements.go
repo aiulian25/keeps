@@ -2,8 +2,10 @@ package items
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // Measurements are optional; each value is kept exactly as entered, with its
@@ -71,8 +73,8 @@ func normaliseMeasurements(input *Measurements, fields map[string]string) *Measu
 		fields["measurements"] = "Choose a unit for the weight: g, kg, lb or oz."
 		return nil
 	}
-	if tooLong(m.FitNote, fitNoteMaximumLength) {
-		fields["measurements"] = "Keep the fitting note under 1000 characters."
+	if length := utf8.RuneCountInString(m.FitNote); length > fitNoteMaximumLength {
+		fields["fitNote"] = fmt.Sprintf("The fitting note has %d characters; keep it to %d. Product details belong in Description.", length, fitNoteMaximumLength)
 		return nil
 	}
 	return &m

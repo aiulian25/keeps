@@ -168,6 +168,7 @@ export function ItemFields({
           value={value.measurements}
           onChange={(next) => set("measurements", next)}
           error={errors.measurements}
+          fitNoteError={errors.fitNote}
         />
         {extraDetails}
         <div className={styles.triple}>

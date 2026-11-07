@@ -392,6 +392,10 @@ test.describe("signed in", () => {
     await page.getByLabel("Height").fill("201.5");
     await page.getByLabel("Size unit").selectOption("cm");
     await page.getByLabel("Weight", { exact: true }).fill("64");
+    await page.getByLabel(/Fitting note/).fill("x".repeat(1001));
+    await expect(
+      page.getByText(/The fitting note has 1001 characters; keep it to 1000/),
+    ).toBeVisible();
     await page.getByLabel(/Fitting note/).fill("Needs an 85 cm doorway");
     await capture(page, "07-measurements-dark");
     await expectAccessible(page, "measurements");

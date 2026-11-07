@@ -35,6 +35,18 @@ func TestMeasurementsKeepTheirUnitsAndAreValidated(t *testing.T) {
 		}
 	}
 
+	longNote := client.do(http.MethodPost, "/api/v1/items", map[string]any{"name": "Spacers", "measurements": map[string]string{"fitNote": strings.Repeat("a", 1001)}})
+	var refused struct {
+		Fields map[string]string `json:"fields"`
+	}
+	longNote.json(t, &refused)
+	if !strings.Contains(refused.Fields["fitNote"], "1001 characters") || refused.Fields["measurements"] != "" {
+		t.Fatalf("a long fitting note was not reported on the note itself: %s", longNote.Body)
+	}
+	if note := client.createItem(map[string]any{"name": "Spacers", "measurements": map[string]string{"fitNote": strings.Repeat("a", 1000)}}); note.ID == 0 {
+		t.Fatal("a 1000-character fitting note was refused")
+	}
+
 	created := client.createItem(map[string]any{"name": "Wardrobe", "notes": "", "measurements": map[string]string{
 		"width": " 80 ", "height": "201.5", "lengthUnit": "cm", "weight": "64", "weightUnit": "kg", "fitNote": "Needs an 85 cm doorway",
 	}})
@@ -53,7 +65,13 @@ func TestMeasurementsKeepTheirUnitsAndAreValidated(t *testing.T) {
 			column = index
 		}
 	}
-	if column < 0 || rows[1][column] != "W 80 × H 201.5 cm; 64 kg; Needs an 85 cm doorway" {
+	summary := ""
+	for _, row := range rows[1:] {
+		if row[1] == "Wardrobe" && column >= 0 {
+			summary = row[column]
+		}
+	}
+	if summary != "W 80 × H 201.5 cm; 64 kg; Needs an 85 cm doorway" {
 		t.Fatalf("the CSV lost the units: %v", rows)
 	}
 
