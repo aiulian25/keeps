@@ -1,7 +1,7 @@
 // End-to-end journeys from the investigation (§6.4, §14 UX row), run against
 // the real binary with the embedded web app. Run: npm --prefix web run e2e
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createHmac } from "node:crypto";
 import {
   mkdirSync,
@@ -953,10 +953,24 @@ test.describe("signed in", () => {
     await page.unroute("**/api/v1/items");
   });
 
-  test("data: export, backup and recently deleted", async ({ page }) => {
+  test("data: export, backup, recently deleted and the running version", async ({
+    page,
+  }) => {
     await page.goto("/account/data");
+    // The test binary is built without a release tag.
+    await expect(
+      page.getByRole("heading", { name: "About Keeps" }),
+    ).toBeVisible();
+    await expect(page.getByText("Development build")).toBeVisible();
     await capture(page, "12-data-dark");
     await expectAccessible(page, "data");
+    const about = "**/api/v1/about";
+    await page.route(about, (route) =>
+      route.fulfill({ json: { version: "0.2.0" } }),
+    );
+    await page.reload();
+    await expect(page.getByText("0.2.0", { exact: true })).toBeVisible();
+    await page.unroute(about);
     await page.goto("/items");
     await page
       .getByRole("button", { name: /^Actions for/ })
@@ -1287,6 +1301,65 @@ test.describe("photos and documents", () => {
     body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
     return Buffer.from(body, "binary");
   }
+
+  test("a manual can be added from a card under the photos, when creating an item and when editing it", async ({
+    page,
+  }) => {
+    const card = (title: string) => page.locator("label", { hasText: title });
+    const expectUnder = async (upper: Locator, lower: Locator) => {
+      const above = await upper.boundingBox();
+      const below = await lower.boundingBox();
+      if (!above || !below) {
+        throw new Error("an upload card is not on the page");
+      }
+      expect(below.y).toBeGreaterThanOrEqual(above.y + above.height);
+      expect(Math.abs(below.x - above.x)).toBeLessThan(2);
+    };
+
+    await page.goto("/add/manual");
+    await page.getByLabel(/^Name/).fill("Router with its manual");
+    await expectUnder(
+      card("Add a photo"),
+      card("Add a manual or other document"),
+    );
+    await page.getByLabel(/Add a manual or other document/).setInputFiles({
+      name: "router-manual.pdf",
+      mimeType: "application/pdf",
+      buffer: simplePdf("Router manual"),
+    });
+    await expect(page.getByText("router-manual.pdf")).toBeVisible();
+    await page.getByRole("button", { name: "Save item" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Router with its manual" }),
+    ).toBeVisible();
+    const itemId = new URL(page.url()).pathname.split("/").pop();
+    await expect(page.getByText("1 file")).toBeVisible();
+
+    await expectUnder(card("Add a photo"), card("Add documents"));
+    await page.getByRole("button", { name: "Edit" }).first().click();
+    await page.getByLabel(/Add documents/).setInputFiles({
+      name: "router-warranty.pdf",
+      mimeType: "application/pdf",
+      buffer: simplePdf("Router warranty"),
+    });
+    await expect(page.getByText("router-warranty.pdf")).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByText("2 files")).toBeVisible();
+
+    const saved = await (
+      await page.request.get(`/api/v1/items/${itemId}`)
+    ).json();
+    const documents = saved.documents
+      .map(
+        (document: { kind: string; filename: string }) =>
+          `${document.kind} ${document.filename}`,
+      )
+      .sort();
+    expect(documents).toEqual([
+      "document router-manual.pdf",
+      "document router-warranty.pdf",
+    ]);
+  });
 
   test("several photos: thumbnails while adding, swipe and arrows, full-size viewer", async ({
     page,

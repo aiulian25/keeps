@@ -1,6 +1,7 @@
 // Typed wrappers for every API endpoint, grouped by area.
 import { request, uploadWithProgress } from "./client";
 import type {
+  About,
   Account,
   Attachment,
   AttachmentKind,
@@ -97,6 +98,7 @@ export const accountApi = {
     recoveryCode?: string;
   }) => request<undefined>("POST", "/account/password", { body }),
   sessions: () => request<SessionSummary[]>("GET", "/sessions"),
+  about: () => request<About>("GET", "/about"),
   revokeSession: (id: number) =>
     request<undefined>("DELETE", `/sessions/${id}`),
   revokeOthers: () => request<undefined>("POST", "/sessions/revoke-others"),

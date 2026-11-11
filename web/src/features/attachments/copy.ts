@@ -7,6 +7,7 @@ export const UPLOAD_COPY = {
   addPhoto: "Add a photo",
   addYourPhotos: "Add your own photos",
   addInvoice: "Add an invoice",
+  addDocument: "Add a manual or other document",
   dragHint: "Drag and drop, or click to upload",
   photoFormats: "JPG, PNG or WebP",
   documentFormats: "PDF, JPG, PNG or WebP",

@@ -140,6 +140,7 @@ func (a *Application) Handler() (http.Handler, error) {
 
 	a.Auth.Routes(mux, a.clientAddress)
 	a.dataRoutes(mux)
+	mux.Handle("GET /api/v1/about", a.Auth.Protect(httpapi.Handler(a.handleAbout)))
 	for _, module := range a.modules {
 		module.Routes(mux, a.Auth.Protect)
 	}
@@ -151,6 +152,13 @@ func (a *Application) Handler() (http.Handler, error) {
 	}
 	mux.Handle("/", frontend)
 	return httpapi.Base(a.Configuration.SecureCookies(), a.gate.wrap(mux)), nil
+}
+
+// handleAbout tells a signed-in person which version is running. It stays
+// behind sign-in so the exact release isn't shown to anyone who finds the page.
+func (a *Application) handleAbout(writer http.ResponseWriter, _ *http.Request) error {
+	httpapi.WriteJSON(writer, http.StatusOK, map[string]string{"version": a.Version})
+	return nil
 }
 
 func (a *Application) handleReady(writer http.ResponseWriter, request *http.Request) {

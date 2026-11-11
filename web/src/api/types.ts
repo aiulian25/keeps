@@ -259,6 +259,11 @@ export interface Account {
   recentlyConfirmed: boolean;
 }
 
+/** The running Keeps release, shown only to signed-in people. */
+export interface About {
+  version: string;
+}
+
 export interface BootstrapState {
   claimed: boolean;
   passkeysAvailable: boolean;

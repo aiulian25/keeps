@@ -45,6 +45,7 @@ export const ITEMS_COPY = {
 export const DETAIL_COPY = {
   viewFullSize: "View full size",
   addPhotos: "Add photos",
+  addDocuments: "Add documents",
   showMore: "Show more",
   showLess: "Show less",
   notFoundTitle: "Item not found",

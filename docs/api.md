@@ -56,6 +56,7 @@ Within `v1`, changes are additive only: new endpoints, new optional request fiel
 | Method | Path                                | Purpose                                                                   |
 | ------ | ----------------------------------- | ------------------------------------------------------------------------- |
 | GET    | `/api/v1/session`                   | Current account, including `csrfToken`                                    |
+| GET    | `/api/v1/about`                     | `{version}`: the running Keeps release, or `dev` for a local build        |
 | DELETE | `/api/v1/session`                   | Sign out                                                                  |
 | GET    | `/api/v1/sessions`                  | Active sessions                                                           |
 | DELETE | `/api/v1/sessions/{id}`             | Sign out one session                                                      |

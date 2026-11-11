@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Pencil } from "lucide-react";
+import { Camera, FileText, Pencil } from "lucide-react";
 import {
   Link,
   useBlocker,
@@ -270,9 +270,9 @@ function ItemDetail({ item, onItemChange, reload }: ItemDetailProps) {
     );
 
   const itemIdentifier = item.id;
-  // Rejects only when the photo was not added, so the upload row can offer
+  // Rejects only when the file was not added, so the upload row can offer
   // Retry; a failed refresh afterwards is reported on its own.
-  const linkUploadedPhoto = useCallback(
+  const linkUpload = useCallback(
     (attachment: Attachment) =>
       itemsApi
         .linkAttachments(itemIdentifier, [attachment.id])
@@ -283,7 +283,7 @@ function ItemDetail({ item, onItemChange, reload }: ItemDetailProps) {
         ),
     [itemIdentifier, reload, notify],
   );
-  const uploads = useUploads(linkUploadedPhoto);
+  const uploads = useUploads(linkUpload);
 
   const trash = () =>
     trashItem(item.id, {
@@ -415,6 +415,17 @@ function ItemDetail({ item, onItemChange, reload }: ItemDetailProps) {
               onRemove={uploads.remove}
             />
           )}
+          <DropZone
+            kind="document"
+            variant="tile"
+            title={DETAIL_COPY.addDocuments}
+            formats={UPLOAD_COPY.documentFormats}
+            icon={<FileText aria-hidden="true" />}
+            uploads={uploads.uploads}
+            onFiles={uploads.add}
+            onRetry={uploads.retry}
+            onRemove={uploads.remove}
+          />
         </div>
 
         <div className={styles.factsColumn}>

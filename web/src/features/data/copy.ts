@@ -15,6 +15,13 @@ export const DATA_COPY = {
   downloadStarting: "Your download will start in a moment.",
 } as const;
 
+export const ABOUT_COPY = {
+  title: "About Keeps",
+  hint: "Which release this Keeps is running, for upgrades and support.",
+  version: "Version",
+  developmentBuild: "Development build",
+} as const;
+
 export const MISSING_COPY = {
   label: "Missing or damaged photos and documents",
   damaged:

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Box, Camera, FileText, Layers } from "lucide-react";
+import { Box, Camera, FileText, Layers, ReceiptText } from "lucide-react";
 import { useLocation } from "react-router";
 import { newIdempotencyKey } from "../../api/client";
 import { itemsApi } from "../../api/endpoints";
@@ -206,13 +206,23 @@ export function ManualItemPage() {
                   kind="invoice"
                   title={UPLOAD_COPY.addInvoice}
                   formats={UPLOAD_COPY.documentFormats}
-                  icon={<FileText aria-hidden="true" />}
+                  icon={<ReceiptText aria-hidden="true" />}
                   uploads={uploads.uploads}
                   onFiles={uploads.add}
                   onRetry={uploads.retry}
                   onRemove={uploads.remove}
                 />
               </div>
+              <DropZone
+                kind="document"
+                title={UPLOAD_COPY.addDocument}
+                formats={UPLOAD_COPY.documentFormats}
+                icon={<FileText aria-hidden="true" />}
+                uploads={uploads.uploads}
+                onFiles={uploads.add}
+                onRetry={uploads.retry}
+                onRemove={uploads.remove}
+              />
             </div>
           }
         />
