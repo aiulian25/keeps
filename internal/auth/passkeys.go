@@ -109,6 +109,12 @@ func (s *Service) loadPasskeyUser(ctx context.Context, query string, argument an
 	return user, rows.Err()
 }
 
+// outstandingLoginChallenges counts unexpired anonymous sign-in challenges.
+const outstandingLoginChallenges = `SELECT count(*) FROM webauthn_challenges WHERE ceremony = ? AND user_id IS NULL AND expires_at >= ?`
+
+// storeChallenge saves a ceremony's challenge. An anonymous one is only
+// inserted while the cap still has room, decided in the insert itself, so two
+// overlapping starts can't both take the last place.
 func (s *Service) storeChallenge(ctx context.Context, userID int64, ceremony string, session *webauthn.SessionData) (string, error) {
 	identifier, err := randomToken()
 	if err != nil {
@@ -118,9 +124,17 @@ func (s *Service) storeChallenge(ctx context.Context, userID int64, ceremony str
 	if err != nil {
 		return "", err
 	}
-	_, err = s.store.Database.ExecContext(ctx, `INSERT INTO webauthn_challenges (id, user_id, ceremony, session_json, expires_at) VALUES (?, nullif(?, 0), ?, ?, ?)`,
-		identifier, userID, ceremony, string(encoded), store.FormatTime(time.Now().Add(config.WebAuthnChallengeLifetime)))
-	return identifier, err
+	result, err := s.store.Database.ExecContext(ctx, `INSERT INTO webauthn_challenges (id, user_id, ceremony, session_json, expires_at)
+		SELECT ?, nullif(?, 0), ?, ?, ? WHERE ? != 0 OR (`+outstandingLoginChallenges+`) < ?`,
+		identifier, userID, ceremony, string(encoded), store.FormatTime(time.Now().Add(config.WebAuthnChallengeLifetime)),
+		userID, ceremonyLogin, store.Now(), config.PasskeyLoginChallengesMaximum)
+	if err != nil {
+		return "", err
+	}
+	if inserted, _ := result.RowsAffected(); inserted == 0 {
+		return "", &ErrRateLimited{RetryAfter: config.WebAuthnChallengeLifetime}
+	}
+	return identifier, nil
 }
 
 // takeChallenge loads and deletes a challenge so each one is usable once.
@@ -236,17 +250,21 @@ func (s *Service) BeginPasskeyLogin(ctx context.Context, clientAddress string) (
 		return CeremonyStart{}, err
 	}
 	identifier, err := s.storeChallenge(ctx, 0, ceremonyLogin, session)
-	return CeremonyStart{ChallengeID: identifier, Options: assertion}, err
+	if err != nil {
+		return CeremonyStart{}, err
+	}
+	return CeremonyStart{ChallengeID: identifier, Options: assertion}, nil
 }
 
 // admitLoginChallenge removes expired challenges, then refuses a new
-// anonymous one while the cap of unanswered ones is reached.
+// anonymous one early while the cap of unanswered ones is reached; the
+// insert in storeChallenge makes the final decision.
 func (s *Service) admitLoginChallenge(ctx context.Context) error {
 	if _, err := s.store.Database.ExecContext(ctx, `DELETE FROM webauthn_challenges WHERE expires_at < ?`, store.Now()); err != nil {
 		return err
 	}
 	var outstanding int
-	err := s.store.Database.QueryRowContext(ctx, `SELECT count(*) FROM webauthn_challenges WHERE ceremony = ? AND user_id IS NULL`, ceremonyLogin).Scan(&outstanding)
+	err := s.store.Database.QueryRowContext(ctx, outstandingLoginChallenges, ceremonyLogin, store.Now()).Scan(&outstanding)
 	if err != nil {
 		return err
 	}

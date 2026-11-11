@@ -159,26 +159,28 @@ func backupCommand(arguments []string) error {
 	fmt.Println("Copy it somewhere off this machine. It cannot be opened without the passphrase or key.")
 	if !manifest.Complete() {
 		printMissing(manifest)
-		return errors.New("the backup was kept, but it is INCOMPLETE: the files above were already missing from storage")
+		return errors.New("the backup was kept, but it is INCOMPLETE: the files above were missing from storage or no longer match what was uploaded")
 	}
 	return nil
 }
 
-// printMissing lists every file an archive lacks, with the items it belongs to.
+// printMissing lists every file an archive lacks or holds damaged, with the
+// items it belongs to.
 func printMissing(manifest backup.Manifest) {
-	if len(manifest.Missing) == 1 {
-		fmt.Println("INCOMPLETE: 1 referenced file is not in this backup:")
-	} else {
-		fmt.Printf("INCOMPLETE: %d referenced files are not in this backup:\n", len(manifest.Missing))
-	}
+	problems := len(manifest.Missing) + len(manifest.Damaged)
+	fmt.Printf("INCOMPLETE: %d missing and %d damaged referenced files:\n", len(manifest.Missing), len(manifest.Damaged))
 	for _, missing := range manifest.MissingFiles {
 		items := "not linked to an item"
 		if len(missing.Items) > 0 {
 			items = strings.Join(missing.Items, ", ")
 		}
-		fmt.Printf("  - %s (%s) — %s\n", missing.Filename, missing.Copy, items)
+		problem := missing.Problem
+		if problem == "" {
+			problem = backup.ProblemMissing
+		}
+		fmt.Printf("  - %s (%s, %s) — %s\n", missing.Filename, missing.Copy, problem, items)
 	}
-	if unnamed := len(manifest.Missing) - len(manifest.MissingFiles); unnamed > 0 {
+	if unnamed := problems - len(manifest.MissingFiles); unnamed > 0 {
 		fmt.Printf("  - %d more not described in the database\n", unnamed)
 	}
 }
@@ -199,7 +201,7 @@ func verifyBackupCommand(arguments []string) error {
 		return err
 	}
 	defer file.Close()
-	manifest, err := backup.Read(context.Background(), file, identity, "")
+	manifest, err := backup.Verify(context.Background(), file, identity, os.TempDir())
 	if err != nil {
 		return fmt.Errorf("backup is NOT usable: %w", err)
 	}

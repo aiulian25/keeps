@@ -40,7 +40,7 @@ const (
 	mediaPDF  = "application/pdf"
 
 	sniffBytes             = 512
-	filenameMaximumRunes   = 120
+	FilenameMaximumRunes   = 120
 	defaultFilename        = "file"
 	concurrentImageDecodes = 1
 )
@@ -112,9 +112,13 @@ func CleanFilename(name string) string {
 	}, name)
 	name = strings.TrimSpace(strings.Trim(name, "."))
 	runes := []rune(name)
-	if len(runes) > filenameMaximumRunes {
-		extension := filepath.Ext(name)
-		name = string(runes[:filenameMaximumRunes-len([]rune(extension))]) + extension
+	if len(runes) > FilenameMaximumRunes {
+		extension := []rune(filepath.Ext(name))
+		// An extension that leaves no room for the name is cut with the rest.
+		if len(extension) >= FilenameMaximumRunes {
+			extension = nil
+		}
+		name = string(runes[:FilenameMaximumRunes-len(extension)]) + string(extension)
 	}
 	if name == "" {
 		return defaultFilename

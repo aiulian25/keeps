@@ -30,7 +30,12 @@ const (
 	partsPerItemMaximum   = 100
 )
 
-var errPartNotFound = httpapi.NewError(http.StatusNotFound, "part_not_found", "That part is no longer recorded for this item.")
+var errPartNotFound = httpapi.NewError(http.StatusNotFound, "part_not_found", "That part is no longer recorded for this item, or the item was moved to Recently deleted. Open the item again to see it as it is now.")
+
+// partOfActiveItem limits a part change to parts whose item is in the same
+// household and not in the trash, so an older tab can't change what a
+// restored item brings back.
+const partOfActiveItem = `EXISTS (SELECT 1 FROM items i WHERE i.id = item_parts.item_id AND i.household_id = item_parts.household_id AND i.deleted_at IS NULL)`
 
 func validatePart(input Part) (Part, error) {
 	part := Part{Name: clean(input.Name), PartNumber: clean(input.PartNumber), Note: clean(input.Note), SourceURL: clean(input.SourceURL)}
@@ -143,7 +148,7 @@ func (s *Service) partRoutes(handle func(pattern string, handler httpapi.Handler
 		}
 		householdID := auth.PrincipalFromRequest(request).HouseholdID
 		result, err := s.store.Database.ExecContext(request.Context(), `UPDATE item_parts SET name = ?, part_number = ?, note = ?, source_url = ?, updated_at = ?
-			WHERE id = ? AND item_id = ? AND household_id = ?`, part.Name, part.PartNumber, part.Note, part.SourceURL, store.Now(), part.ID, itemID, householdID)
+			WHERE id = ? AND item_id = ? AND household_id = ? AND `+partOfActiveItem, part.Name, part.PartNumber, part.Note, part.SourceURL, store.Now(), part.ID, itemID, householdID)
 		if err != nil {
 			return err
 		}
@@ -163,7 +168,7 @@ func (s *Service) partRoutes(handle func(pattern string, handler httpapi.Handler
 		if err != nil {
 			return errPartNotFound
 		}
-		result, err := s.store.Database.ExecContext(request.Context(), `DELETE FROM item_parts WHERE id = ? AND item_id = ? AND household_id = ?`,
+		result, err := s.store.Database.ExecContext(request.Context(), `DELETE FROM item_parts WHERE id = ? AND item_id = ? AND household_id = ? AND `+partOfActiveItem,
 			partID, itemID, auth.PrincipalFromRequest(request).HouseholdID)
 		if err != nil {
 			return err

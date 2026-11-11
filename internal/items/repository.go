@@ -99,6 +99,9 @@ func loadItem(ctx context.Context, database querier, householdID int64, itemID i
 	if item.Parts, err = loadParts(ctx, database, itemID); err != nil {
 		return Item{}, err
 	}
+	if item.Units, err = loadUnits(ctx, database, itemID); err != nil {
+		return Item{}, err
+	}
 	item.FieldSources, err = loadProvenance(ctx, database, itemID)
 	return item, err
 }
@@ -299,7 +302,9 @@ func Reindex(ctx context.Context, database querier, itemIDs ...int64) error {
 			return err
 		}
 		_, err := database.ExecContext(ctx, `INSERT INTO items_search (rowid, name, description, brand_model, seller, notes, groups)
-			SELECT i.id, i.name, i.description, i.brand || ' ' || i.model || ' ' || i.serial_number, coalesce(p.seller, ''), i.notes,
+			SELECT i.id, i.name, i.description,
+				i.brand || ' ' || i.model || ' ' || i.serial_number || ' ' || coalesce((SELECT group_concat(u.label || ' ' || u.serial_number, ' ') FROM item_units u WHERE u.item_id = i.id), ''),
+				coalesce(p.seller, ''), i.notes,
 				coalesce(r.name, '') || ' ' || coalesce(c.name, '') || ' ' ||
 				coalesce((SELECT group_concat(t.name, ' ') FROM tags t JOIN item_tags x ON x.tag_id = t.id WHERE x.item_id = i.id), '') || ' ' ||
 				coalesce((SELECT group_concat(k.name, ' ') FROM collections k JOIN item_collections y ON y.collection_id = k.id WHERE y.item_id = i.id), '')

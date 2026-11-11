@@ -6,6 +6,7 @@ const CSRF_HEADER = "X-CSRF-Token";
 const IDEMPOTENCY_HEADER = "Idempotency-Key";
 const IF_MATCH_HEADER = "If-Match";
 export const STATUS_UNAUTHORIZED = 401;
+export const STATUS_NOT_FOUND = 404;
 const STATUS_NO_CONTENT = 204;
 const STATUS_SUCCESS_MINIMUM = 200;
 const STATUS_SUCCESS_LIMIT = 300;

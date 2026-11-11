@@ -15,6 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf8"
+
+	"github.com/aiulian25/keeps/internal/attachments"
 )
 
 type itemResponse struct {
@@ -449,5 +452,31 @@ func TestRoomCostsAreExactAndPerCurrency(t *testing.T) {
 	}
 	if costs.AllRooms.Totals["GBP"] != "104.99" || costs.AllRooms.Totals["EUR"] != "80.00" || costs.Unassigned.Totals["GBP"] != "9.50" {
 		t.Fatalf("totals: %+v %+v", costs.AllRooms, costs.Unassigned)
+	}
+}
+
+func TestOversizedFilenameExtensionsGetOrdinaryAnswers(t *testing.T) {
+	server := newTestServer(t)
+	client := server.claimed()
+	oddName := "photo." + strings.Repeat("a", 2*attachments.FilenameMaximumRunes)
+	if result := client.upload("photo", oddName, "image/png", pngBytes(4, 4)); result.code() != "file_type_mismatch" {
+		t.Fatalf("an oversized extension was answered %d %s", result.Status, result.Body)
+	}
+
+	var photo struct {
+		ID int64 `json:"id"`
+	}
+	client.upload("photo", "front.png", "image/png", pngBytes(4, 4)).json(t, &photo)
+	path := fmt.Sprintf("/api/v1/attachments/%d", photo.ID)
+	if result := client.do(http.MethodPatch, path, map[string]string{"filename": oddName}); result.Status != http.StatusNoContent {
+		t.Fatalf("rename: %d %s", result.Status, result.Body)
+	}
+	var filename string
+	server.application.Store.Database.QueryRow(`SELECT filename FROM attachments WHERE id = ?`, photo.ID).Scan(&filename)
+	if filename == "" || utf8.RuneCountInString(filename) > attachments.FilenameMaximumRunes {
+		t.Fatalf("rename stored %d runes", utf8.RuneCountInString(filename))
+	}
+	if result := client.do(http.MethodGet, path, nil); result.Status != http.StatusOK {
+		t.Fatalf("the renamed photo can't be downloaded: %d", result.Status)
 	}
 }

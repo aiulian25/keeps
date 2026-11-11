@@ -72,6 +72,11 @@ const (
 	// RestoreUploadMaximumDuration in total.
 	RestoreUploadIdleTimeout     = 2 * time.Minute
 	RestoreUploadMaximumDuration = 12 * time.Hour
+	// RestoreFinishMaximumDuration bounds the work after the live data is
+	// swapped (opening and migrating it, loading its key, signing everyone
+	// out), and separately the check that the previous data opens again after
+	// a rollback. The server owns it, so a dropped browser can't cut it short.
+	RestoreFinishMaximumDuration = 10 * time.Minute
 	// DownloadMaximumDuration bounds sending one prepared backup or export,
 	// which can take longer than WriteTimeout on a slow connection.
 	DownloadMaximumDuration = 12 * time.Hour

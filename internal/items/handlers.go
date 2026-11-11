@@ -162,6 +162,7 @@ func (s *Service) Routes(mux *http.ServeMux, protect func(http.Handler) http.Han
 		}
 	}
 	s.partRoutes(handle)
+	s.unitRoutes(handle)
 	s.presetRoutes(handle)
 	handle("DELETE /api/v1/items/{id}", itemAction(s.Trash))
 	handle("POST /api/v1/items/{id}/restore", itemAction(s.Restore))

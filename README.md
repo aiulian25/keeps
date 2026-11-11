@@ -11,7 +11,7 @@ Add a belonging in seconds by name, from a shop link, or with the **Add to Keeps
 ## What it does
 
 - **Rooms first.** Every room has its own page with an optional photo and description, its items, and what they cost in total. Rooms show as cards, a list or wide rows.
-- **Items with their proof.** Each item can have several photos (you pick the main one), invoices and documents, the price paid, purchase date, seller, brand, model, serial number, condition and warranty end date.
+- **Items with their proof.** Each item can have several photos (you pick the main one), invoices and documents, the price paid, purchase date, seller, brand, model, serial number, condition and warranty end date. An item bought as several, like a pair of speakers, can keep each unit's own serial number and a label telling them apart.
 - **Add from a shop.** Paste a product link and Keeps reads the name, price and photos for you to check before saving. For shops that block that, the **Add to Keeps** bookmark button sends the page you're already looking at.
 - **Documents open in Keeps.** Read a PDF receipt or manual on the page, without downloading it.
 - **Find anything.** Full-text search, plus filters for room, category, tag, collection, condition, warranty and receipts.

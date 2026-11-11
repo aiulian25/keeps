@@ -52,27 +52,39 @@ func Stage(ctx context.Context, dataDirectory string, source io.Reader, identity
 	return staging, manifest, nil
 }
 
-// checkReferences compares the staged database with the staged files, so an
-// archive that silently lacks a file (an old or altered manifest) is still
-// reported as incomplete.
-func checkReferences(ctx context.Context, staging string, manifest *Manifest) error {
-	stagedDatabase := filepath.Join(staging, databasePath)
-	_, keys, err := inspectSnapshot(ctx, stagedDatabase)
+// checkReferences compares the database in directory with the archive's
+// verified entries, so an archive that silently lacks a file (an old or
+// altered manifest) or holds an original whose bytes differ from its upload
+// record is reported as incomplete. Read has already proved every listed
+// entry is present with the hash the manifest records, so no file needs to
+// be read again; staging and Verify use it alike.
+func checkReferences(ctx context.Context, directory string, manifest *Manifest) error {
+	database := filepath.Join(directory, databasePath)
+	_, keys, err := inspectSnapshot(ctx, database)
 	if err != nil {
 		return ErrDamaged
 	}
-	var missing []string
+	originals, err := recordedOriginals(ctx, database)
+	if err != nil {
+		return ErrDamaged
+	}
+	archived := map[string]FileEntry{}
+	for _, entry := range manifest.Files {
+		archived[entry.Path] = entry
+	}
+	var missing, damaged []string
 	for _, key := range keys {
-		if !allowedEntry.MatchString(blobPrefix + shard(key) + "/" + key) {
+		entry, present := archived[blobPrefix+shard(key)+"/"+key]
+		if !present {
 			missing = append(missing, key)
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(staging, "blobs", shard(key), key)); err != nil {
-			missing = append(missing, key)
+		if originals.damaged(key, entry) {
+			damaged = append(damaged, key)
 		}
 	}
-	manifest.Missing = missing
-	manifest.MissingFiles, err = describeMissing(ctx, stagedDatabase, missing)
+	manifest.Missing, manifest.Damaged = missing, damaged
+	manifest.MissingFiles, err = describeMissing(ctx, database, missing, damaged)
 	return err
 }
 
@@ -113,8 +125,10 @@ func (e *RollbackError) Unwrap() error { return e.Cause }
 // completed move is reversed and checked. The database must be closed by the
 // caller.
 func Swap(dataDirectory string, staging string) (string, error) {
-	rollback := filepath.Join(dataDirectory, rollbackPrefix+time.Now().UTC().Format(timestampFormat))
-	if err := os.MkdirAll(rollback, stagedDirectoryMode); err != nil {
+	// A new, private directory for every swap: an earlier rollback kept from
+	// the same second must never be reused, overwritten or removed.
+	rollback, err := os.MkdirTemp(dataDirectory, rollbackPrefix+time.Now().UTC().Format(timestampFormat)+"-")
+	if err != nil {
 		return "", err
 	}
 	live := func(name string) string { return filepath.Join(dataDirectory, name) }

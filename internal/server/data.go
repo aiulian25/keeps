@@ -90,7 +90,7 @@ type preparedFile struct {
 
 func incompleteRestoreError(missing []backup.MissingFile) error {
 	return &httpapi.Error{Status: http.StatusConflict, Code: "backup_incomplete",
-		Message: "This backup is missing some photos or documents. Restoring it brings back everything else, but those files will be gone. Nothing was changed.",
+		Message: "Some photos or documents in this backup are missing or damaged. Restoring it brings back everything else, but those files will be gone or wrong. Nothing was changed.",
 		Details: map[string]any{"missingFiles": missing}}
 }
 
@@ -236,6 +236,9 @@ func (a *Application) handleExport(writer http.ResponseWriter, request *http.Req
 	}
 	downloadURL, err := a.downloads.prepare(a.temporaryDirectory(), principal.UserID, filename, contentType, func(destination io.Writer) error {
 		err := write(destination)
+		if errors.Is(err, exporter.ErrFileDamaged) {
+			return httpapi.NewError(http.StatusConflict, "export_file_damaged", fmt.Sprintf("A file in storage no longer matches what was uploaded, so the archive can't be trusted: %s. Nothing was downloaded. Restore that file from an older backup, or upload it again.", strings.TrimPrefix(err.Error(), exporter.ErrFileDamaged.Error()+": ")))
+		}
 		if errors.Is(err, exporter.ErrFileMissing) {
 			return httpapi.NewError(http.StatusConflict, "export_file_missing", fmt.Sprintf("A file is missing from storage, so the archive can't be complete: %s. Nothing was downloaded. A backup lists every missing file; the spreadsheet export still works.", strings.TrimPrefix(err.Error(), exporter.ErrFileMissing.Error()+": ")))
 		}
@@ -360,6 +363,16 @@ func translateRestoreError(err error) error {
 	return err
 }
 
+// swapData moves the staged data into place; tests replace it to act at that
+// exact moment.
+var swapData = backup.Swap
+
+// maintenanceContext lasts as long as the server needs to finish or undo a
+// swap, whatever happens to the request that started it.
+func maintenanceContext(request context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(request), config.RestoreFinishMaximumDuration)
+}
+
 // swapIn enters maintenance mode, stops every background worker, waits for
 // other requests, swaps the staged data in, reopens the database and reloads
 // the key. Any failure after the swap puts the previous data back and checks
@@ -375,9 +388,14 @@ func (a *Application) swapIn(ctx context.Context, staging string) error {
 	}
 	a.blobLock.Lock()
 	defer a.blobLock.Unlock()
+	// The last moment an abandoned request leaves everything as it was.
+	if err := ctx.Err(); err != nil {
+		a.resumeBackground()
+		return err
+	}
 
 	a.Store.Database.Close()
-	rollback, err := backup.Swap(a.Configuration.DataDirectory, staging)
+	rollback, err := swapData(a.Configuration.DataDirectory, staging)
 	if err != nil {
 		var rollbackFailed *backup.RollbackError
 		if errors.As(err, &rollbackFailed) {
@@ -389,7 +407,9 @@ func (a *Application) swapIn(ctx context.Context, staging string) error {
 		a.resumeBackground()
 		return err
 	}
-	err = a.afterSwap(ctx)
+	finishing, cancel := maintenanceContext(ctx)
+	err = a.afterSwap(finishing)
+	cancel()
 	if err == nil {
 		slog.Info("restore completed", "rollback", rollback)
 		a.resumeBackground()
@@ -410,8 +430,12 @@ func (a *Application) swapIn(ctx context.Context, staging string) error {
 	return err
 }
 
-// reopenCurrent opens whatever data is now in place and loads its key.
-func (a *Application) reopenCurrent(ctx context.Context) error {
+// reopenCurrent opens whatever data is now in place and loads its key, with
+// its own time budget, so it still runs when the request or the budget for
+// finishing the restore has ended.
+func (a *Application) reopenCurrent(request context.Context) error {
+	ctx, cancel := maintenanceContext(request)
+	defer cancel()
 	if err := a.Store.Reopen(ctx, ""); err != nil {
 		return err
 	}

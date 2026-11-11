@@ -1,15 +1,19 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"filippo.io/age"
+	"github.com/aiulian25/keeps/internal/backup"
 	"github.com/aiulian25/keeps/internal/store"
 )
 
@@ -135,4 +139,88 @@ func TestUnconfirmedRollbackKeepsKeepsUnavailable(t *testing.T) {
 		t.Fatalf("requests were served after an unconfirmed rollback: %d %s", result.Status, result.Body)
 	}
 	server.application.resumeBackground()
+}
+
+func stageArchive(t *testing.T, application *Application, archive []byte) string {
+	t.Helper()
+	identity, err := age.NewScryptIdentity(backupPassphrase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staging, _, err := backup.Stage(context.Background(), application.Configuration.DataDirectory, bytes.NewReader(archive), identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(staging) })
+	return staging
+}
+
+// cancelOnceSwapped cancels the restore's request the moment the live data
+// has been moved, like a browser closed in the middle of a restore.
+func cancelOnceSwapped(t *testing.T) context.Context {
+	t.Helper()
+	request, cancel := context.WithCancel(context.Background())
+	swapData = func(data string, staging string) (string, error) {
+		rollback, err := backup.Swap(data, staging)
+		cancel()
+		return rollback, err
+	}
+	t.Cleanup(func() {
+		swapData = backup.Swap
+		cancel()
+	})
+	return request
+}
+
+func TestARestoreOutlivesTheBrowserThatStartedIt(t *testing.T) {
+	server := newTestServer(t)
+	client := server.claimed()
+	application := server.application
+	client.createItem(map[string]any{"name": "In the backup"})
+	archive := client.fetchDownload("/api/v1/backups", map[string]string{"passphrase": backupPassphrase}).Body
+	client.createItem(map[string]any{"name": "After the backup"})
+	serving := func(want int) {
+		t.Helper()
+		if result := client.do(http.MethodGet, "/api/v1/items", nil); result.Status != want {
+			t.Fatalf("items answered %d %s, expected %d", result.Status, result.Body, want)
+		}
+	}
+
+	gone, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := application.swapIn(gone, stageArchive(t, application, archive)); !errors.Is(err, context.Canceled) {
+		t.Fatalf("a request gone before the swap: %v", err)
+	}
+	if itemCount(server, "After the backup") != 1 {
+		t.Fatal("a request gone before the swap still changed the data")
+	}
+	serving(http.StatusOK)
+
+	broken := rewriteArchive(t, archive, func(name string, content []byte) ([]byte, bool) {
+		if name == "keys/instance.key" {
+			return content[:len(content)-1], true
+		}
+		return content, true
+	})
+	err := application.swapIn(cancelOnceSwapped(t), stageArchive(t, application, broken))
+	if err == nil || errors.Is(err, errRecoveryNeeded) {
+		t.Fatalf("a failed restore whose browser left was not put back cleanly: %v", err)
+	}
+	if itemCount(server, "After the backup") != 1 {
+		t.Fatal("the previous data is not back")
+	}
+	serving(http.StatusOK)
+
+	if err := application.swapIn(cancelOnceSwapped(t), stageArchive(t, application, archive)); err != nil {
+		t.Fatalf("a restore whose browser left did not finish: %v", err)
+	}
+	if itemCount(server, "In the backup") != 1 || itemCount(server, "After the backup") != 0 {
+		t.Fatal("the backup's data is not in place")
+	}
+	var sessions int
+	application.Store.Database.QueryRow(`SELECT count(*) FROM sessions`).Scan(&sessions)
+	if sessions != 0 {
+		t.Fatal("sessions survived the restore")
+	}
+	serving(http.StatusUnauthorized)
 }

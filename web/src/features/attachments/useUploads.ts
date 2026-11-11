@@ -20,15 +20,33 @@ function failureMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
+/** A file that finished uploading before a refresh: only its record is left. */
+function restoredUpload(attachment: Attachment): Upload {
+  return {
+    key: crypto.randomUUID(),
+    file: new File([], attachment.filename),
+    kind: attachment.kind,
+    progress: 1,
+    status: "done",
+    attachment,
+  };
+}
+
 /**
  * Uploads files as soon as they are chosen, independently of saving the item,
  * so a failed upload never loses the typed details and can be retried alone.
  * When `onUploaded` adds the file to an item, the upload is done only once
  * that has worked too; if it fails, Retry adds the same uploaded file again
- * instead of uploading it a second time.
+ * instead of uploading it a second time. `restored` lists files uploaded
+ * before a refresh, shown as done.
  */
-export function useUploads(onUploaded?: (attachment: Attachment) => unknown) {
-  const [uploads, setUploads] = useState<Upload[]>([]);
+export function useUploads(
+  onUploaded?: (attachment: Attachment) => unknown,
+  restored: Attachment[] = [],
+) {
+  const [uploads, setUploads] = useState<Upload[]>(() =>
+    restored.map(restoredUpload),
+  );
   const controllers = useRef(new Map<string, AbortController>());
 
   const update = (key: string, change: Partial<Upload>) =>

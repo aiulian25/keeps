@@ -41,6 +41,16 @@ var (
 // Read decrypts and fully validates an archive. When extractTo is not empty
 // every file is written there; nothing outside extractTo is ever touched.
 func Read(ctx context.Context, source io.Reader, identity age.Identity, extractTo string) (Manifest, error) {
+	return read(ctx, source, identity, extractTo, extractEverything)
+}
+
+func extractEverything(string) bool { return true }
+
+func extractDatabaseOnly(name string) bool { return name == databasePath }
+
+// read is Read with a choice of which entries to write to extractTo; every
+// entry is still read and checked against the manifest.
+func read(ctx context.Context, source io.Reader, identity age.Identity, extractTo string, extract func(name string) bool) (Manifest, error) {
 	decrypted, err := age.Decrypt(source, identity)
 	if err != nil {
 		return Manifest{}, ErrWrongSecret
@@ -86,7 +96,11 @@ func Read(ctx context.Context, source io.Reader, identity age.Identity, extractT
 			seen[header.Name] = FileEntry{}
 			continue
 		}
-		entry, err := copyEntry(archive, header, extractTo)
+		destination := ""
+		if extract(header.Name) {
+			destination = extractTo
+		}
+		entry, err := copyEntry(archive, header, destination)
 		if err != nil {
 			return Manifest{}, err
 		}
@@ -188,4 +202,29 @@ func CheckDatabase(ctx context.Context, path string) error {
 		return ErrDamaged
 	}
 	return nil
+}
+
+// Verify checks an archive the way a restore would, without restoring it:
+// every entry against the manifest, the database's integrity, and every file
+// the database refers to (missing, or damaged against its upload record).
+// Only the database is written, to a private folder in scratchDirectory that
+// is always removed. The returned manifest says whether the archive is
+// complete.
+func Verify(ctx context.Context, source io.Reader, identity age.Identity, scratchDirectory string) (Manifest, error) {
+	scratch, err := os.MkdirTemp(scratchDirectory, "keeps-verify-")
+	if err != nil {
+		return Manifest{}, err
+	}
+	defer os.RemoveAll(scratch)
+	manifest, err := read(ctx, source, identity, scratch, extractDatabaseOnly)
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := CheckDatabase(ctx, filepath.Join(scratch, databasePath)); err != nil {
+		return Manifest{}, err
+	}
+	if err := checkReferences(ctx, scratch, &manifest); err != nil {
+		return Manifest{}, err
+	}
+	return manifest, nil
 }

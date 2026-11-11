@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // instance writes a minimal data directory and a staging directory with
@@ -131,5 +132,77 @@ func TestUndoReportsMissingRequiredDataAndFailedRemovals(t *testing.T) {
 	}
 	if content(t, filepath.Join(rollback, "keys/instance.key")) != "old" {
 		t.Fatal("the previous key was lost after a failed removal")
+	}
+}
+
+// seedEarlierRollbacks writes kept rollback generations under the names a
+// swap in this or the next second would have used before FIX-026.
+func seedEarlierRollbacks(t *testing.T, data string) []string {
+	t.Helper()
+	now := time.Now().UTC()
+	var seeded []string
+	for _, moment := range []time.Time{now, now.Add(time.Second)} {
+		directory := filepath.Join(data, rollbackPrefix+moment.Format(timestampFormat))
+		for _, name := range []string{"keeps.db", "keys/instance.key", "blobs/aa/aa00", "sentinel"} {
+			path := filepath.Join(directory, name)
+			os.MkdirAll(filepath.Dir(path), 0o700)
+			os.WriteFile(path, []byte("earlier "+name), 0o600)
+		}
+		seeded = append(seeded, directory)
+	}
+	return seeded
+}
+
+func assertEarlierRollbacksIntact(t *testing.T, seeded []string) {
+	t.Helper()
+	for _, directory := range seeded {
+		for _, name := range []string{"keeps.db", "keys/instance.key", "blobs/aa/aa00", "sentinel"} {
+			if got := content(t, filepath.Join(directory, name)); got != "earlier "+name {
+				t.Fatalf("%s/%s was changed or lost: %q", filepath.Base(directory), name, got)
+			}
+		}
+	}
+}
+
+func TestSwapNeverReusesAnEarlierRollback(t *testing.T) {
+	data, staging := instance(t)
+	seeded := seedEarlierRollbacks(t, data)
+	failRename(t, 7, false)
+	if _, err := Swap(data, staging); err == nil {
+		t.Fatal("the injected failure was not reported")
+	}
+	assertEarlierRollbacksIntact(t, seeded)
+	if content(t, filepath.Join(data, "keeps.db")) != "old" {
+		t.Fatal("the live database was not put back")
+	}
+	rename = os.Rename
+
+	data, staging = instance(t)
+	seeded = seedEarlierRollbacks(t, data)
+	rollback, err := Swap(data, staging)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEarlierRollbacksIntact(t, seeded)
+	for _, earlier := range seeded {
+		if rollback == earlier {
+			t.Fatal("the new rollback reused an earlier directory")
+		}
+	}
+	if content(t, filepath.Join(rollback, "keeps.db")) != "old" || content(t, filepath.Join(data, "keeps.db")) != "new" {
+		t.Fatal("the swap did not keep the previous data in its own directory")
+	}
+}
+
+func TestSwapLeavesLiveDataAloneWhenNoRollbackDirectoryCanBeMade(t *testing.T) {
+	data, staging := instance(t)
+	os.Chmod(data, 0o500)
+	t.Cleanup(func() { os.Chmod(data, 0o700) })
+	if _, err := Swap(data, staging); err == nil {
+		t.Skip("running with permissions that ignore directory modes")
+	}
+	os.Chmod(data, 0o700)
+	if content(t, filepath.Join(data, "keeps.db")) != "old" || content(t, filepath.Join(data, "keys/instance.key")) != "old" || content(t, filepath.Join(data, "blobs/aa/aa00")) != "old" {
+		t.Fatal("live data changed although no rollback directory could be made")
 	}
 }

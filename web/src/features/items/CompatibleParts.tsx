@@ -43,9 +43,9 @@ function PartForm({ initial, onSave, onCancel }: PartFormProps) {
   };
   const problems = fieldErrors(error);
   return (
-    <form className={styles.partForm} onSubmit={submit} noValidate>
+    <form className={styles.entryForm} onSubmit={submit} noValidate>
       <FormError message={formErrorMessage(error, Object.keys(problems))} />
-      <div className={styles.partFormRow}>
+      <div className={styles.entryFormRow}>
         <TextField
           label={PARTS_COPY.name}
           value={part.name}
@@ -79,7 +79,7 @@ function PartForm({ initial, onSave, onCancel }: PartFormProps) {
         hint={PARTS_COPY.sourceHint}
         error={problems.sourceUrl}
       />
-      <div className={styles.partActions}>
+      <div className={styles.entryActions}>
         <Button onClick={onCancel}>{COMMON.cancel}</Button>
         <Button type="submit" variant="primary" busy={busy}>
           {PARTS_COPY.save}
@@ -128,11 +128,11 @@ export function CompatibleParts({
       summary={PARTS_COPY.title(parts.length)}
       defaultOpen={parts.length > 0}
     >
-      <div className={styles.parts}>
+      <div className={styles.entries}>
         <p className="muted small">{PARTS_COPY.disclaimer}</p>
         <FormError message={removeError} />
         {parts.length > 0 && (
-          <ul className={styles.partList}>
+          <ul className={styles.entryList}>
             {parts.map((part) =>
               editing === part.id ? (
                 <li key={part.id}>
@@ -143,18 +143,18 @@ export function CompatibleParts({
                   />
                 </li>
               ) : (
-                <li key={part.id} className={styles.part}>
-                  <div className={styles.partText}>
-                    <span className={styles.partName}>{part.name}</span>
+                <li key={part.id} className={styles.entry}>
+                  <div className={styles.entryText}>
+                    <span className={styles.entryName}>{part.name}</span>
                     {part.partNumber && (
-                      <code className={styles.partNumber}>
+                      <code className={styles.entryCode}>
                         {part.partNumber}
                       </code>
                     )}
                     {part.note && <p className="muted small">{part.note}</p>}
                     {part.sourceUrl && (
                       <a
-                        className={styles.partSource}
+                        className={styles.entrySource}
                         href={part.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"

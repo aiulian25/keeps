@@ -100,7 +100,7 @@ export function HomePage() {
   };
   const trash = (item: ItemSummary) =>
     trashItem(item.id, {
-      onTrashed: () => recent.removeItem(item.id),
+      onTrashed: recent.reload,
       onRestored: recent.reload,
     });
 

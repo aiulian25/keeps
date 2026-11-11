@@ -237,8 +237,8 @@ func TestExportsEscapeFormulasAndIncludeFiles(t *testing.T) {
 	if err != nil || len(rows) != 2 {
 		t.Fatalf("csv: %v %d", err, len(rows))
 	}
-	if !strings.HasPrefix(rows[1][1], "'=") || !strings.HasPrefix(rows[1][20], "'@") {
-		t.Fatalf("formula not neutralised: %q %q", rows[1][1], rows[1][20])
+	if !strings.HasPrefix(rows[1][1], "'=") || !strings.HasPrefix(rows[1][21], "'@") {
+		t.Fatalf("formula not neutralised: %q %q", rows[1][1], rows[1][21])
 	}
 
 	archive := client.fetchDownload("/api/v1/exports", map[string]string{"format": "archive"})

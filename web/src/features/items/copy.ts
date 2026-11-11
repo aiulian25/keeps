@@ -94,3 +94,22 @@ export const PARTS_COPY = {
   edit: (name: string) => `Edit ${name}`,
   remove: (name: string) => `Remove ${name}`,
 } as const;
+
+export const UNITS_COPY = {
+  title: (identified: number, quantity: number) =>
+    identified === 0
+      ? "Individual units"
+      : `Individual units (${identified} of ${quantity})`,
+  explanation:
+    "Tell matching units apart, like a left and a right speaker, by their own serial numbers. The quantity, price and receipts stay with the item.",
+  add: "Identify a unit",
+  label: "Label",
+  labelPlaceholder: "e.g. Left speaker",
+  serialNumber: "Serial number",
+  save: "Save unit",
+  unnamed: (position: number) => `Unit ${position}`,
+  allIdentified:
+    "Every unit is identified. Raise the quantity to identify another.",
+  edit: (name: string) => `Edit ${name}`,
+  remove: (name: string) => `Remove ${name}`,
+} as const;

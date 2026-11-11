@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError } from "../../api/client";
+import { ApiError, STATUS_NOT_FOUND } from "../../api/client";
 import { attachmentsApi, itemsApi } from "../../api/endpoints";
 import type { DocumentEntry, Item } from "../../api/types";
 import { ERRORS } from "../../constants/copy";
 import { SEARCH_DEBOUNCE_MS } from "../../constants/limits";
-
-const STATUS_NOT_FOUND = 404;
 
 export function errorMessage(error: unknown) {
   return error instanceof ApiError ? error.message : ERRORS.generic;

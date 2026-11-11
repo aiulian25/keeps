@@ -26,6 +26,7 @@ const JPEG_QUALITY = 0.85;
 const POINTS_PER_INCH = 72;
 const RENDER_DOTS_PER_INCH = 150;
 const REDACTION_COLOUR = "#000000";
+const BACKGROUND_COLOUR = "#ffffff";
 // PDF object layout: 1 catalog, 2 page tree, then per page: page, content
 // stream, image.
 const CATALOG_OBJECT = 1;
@@ -94,15 +95,19 @@ export function paintRedacted(
   if (!context) {
     return;
   }
+  // One opaque background for preview and output alike: JPEG has no
+  // transparency, so transparent pixels must look the same in both.
+  context.fillStyle = BACKGROUND_COLOUR;
+  context.fillRect(0, 0, target.width, target.height);
   context.drawImage(source, 0, 0);
   context.fillStyle = REDACTION_COLOUR;
   for (const box of boxes) {
-    context.fillRect(
-      Math.floor(box.x * source.width),
-      Math.floor(box.y * source.height),
-      Math.ceil(box.width * source.width),
-      Math.ceil(box.height * source.height),
-    );
+    // Rounded outwards on every side, so the whole intended area is covered.
+    const left = Math.floor(box.x * source.width);
+    const top = Math.floor(box.y * source.height);
+    const right = Math.ceil((box.x + box.width) * source.width);
+    const bottom = Math.ceil((box.y + box.height) * source.height);
+    context.fillRect(left, top, right - left, bottom - top);
   }
 }
 

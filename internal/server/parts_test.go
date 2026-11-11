@@ -63,3 +63,41 @@ func TestCompatiblePartsAreKeptPerItem(t *testing.T) {
 		t.Fatalf("removed part still listed: %+v", item.Parts)
 	}
 }
+
+func TestPartsOfATrashedItemCannotBeChanged(t *testing.T) {
+	server := newTestServer(t)
+	client := server.claimed()
+	vacuum := client.createItem(map[string]any{"name": "Vacuum in the trash"})
+	partsPath := fmt.Sprintf("/api/v1/items/%d/parts", vacuum.ID)
+	var part struct {
+		ID int64 `json:"id"`
+	}
+	client.do(http.MethodPost, partsPath, map[string]string{"name": "Vacuum bags", "partNumber": "VB-12"}).json(t, &part)
+	partPath := fmt.Sprintf("%s/%d", partsPath, part.ID)
+	itemPath := fmt.Sprintf("/api/v1/items/%d", vacuum.ID)
+
+	if result := client.do(http.MethodDelete, itemPath, nil); result.Status != http.StatusNoContent {
+		t.Fatalf("trash: %d %s", result.Status, result.Body)
+	}
+	if result := client.do(http.MethodPut, partPath, map[string]string{"name": "Changed", "partNumber": "VB-99"}); result.code() != "part_not_found" {
+		t.Fatalf("a trashed item's part was edited: %d %s", result.Status, result.Body)
+	}
+	if result := client.do(http.MethodDelete, partPath, nil); result.code() != "part_not_found" {
+		t.Fatalf("a trashed item's part was removed: %d %s", result.Status, result.Body)
+	}
+
+	if result := client.do(http.MethodPost, itemPath+"/restore", nil); result.Status >= http.StatusBadRequest {
+		t.Fatalf("restore: %d %s", result.Status, result.Body)
+	}
+	var item itemParts
+	client.do(http.MethodGet, itemPath, nil).json(t, &item)
+	if len(item.Parts) != 1 || item.Parts[0].Name != "Vacuum bags" || item.Parts[0].PartNumber != "VB-12" {
+		t.Fatalf("the restored item came back with different parts: %+v", item.Parts)
+	}
+	if result := client.do(http.MethodPut, partPath, map[string]string{"name": "Vacuum bags", "partNumber": "VB-14"}); result.Status != http.StatusOK {
+		t.Fatalf("editing after the restore: %d %s", result.Status, result.Body)
+	}
+	if result := client.do(http.MethodDelete, partPath, nil); result.Status != http.StatusNoContent {
+		t.Fatalf("removing after the restore: %d %s", result.Status, result.Body)
+	}
+}

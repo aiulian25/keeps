@@ -200,7 +200,7 @@ export function ItemsPage() {
   };
   const trash = (item: ItemSummary) =>
     trashItem(item.id, {
-      onTrashed: () => results.removeItem(item.id),
+      onTrashed: results.reload,
       onRestored: results.reload,
     });
   const loadMore = () =>

@@ -34,9 +34,15 @@ export const MANUAL_COPY = {
     count === 1
       ? "1 file from the link will be attached."
       : `${count} files from the link will be attached.`,
+  chooseAgain: (count: number) =>
+    count === 1
+      ? "1 file hadn't finished uploading when the page reloaded. Choose it again."
+      : `${count} files hadn't finished uploading when the page reloaded. Choose them again.`,
 } as const;
 
 export const MANUAL_DRAFT_STORAGE_KEY = "keeps:manual-item-draft";
+/** Drafts saved before this version hold only the form's field values. */
+export const MANUAL_DRAFT_VERSION = 1;
 export const CAPTURE_STORAGE_KEY = "keeps:add-to-keeps-capture";
 
 export const BUTTON_COPY = {

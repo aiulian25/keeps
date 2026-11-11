@@ -1,23 +1,100 @@
-import type { ItemInput } from "../../api/types";
+import type { Attachment, ItemInput } from "../../api/types";
 import {
   CAPTURE_LIFETIME_MS,
   CAPTURE_MAXIMUM_CHARACTERS,
 } from "../../constants/limits";
+import { MANUAL_DRAFT_VERSION } from "./copy";
 
 // Storage can be unavailable (private mode, quota); a draft is a convenience.
 
-export function readDraft(key: string): Partial<ItemInput> | null {
+/**
+ * The manual form as it was last seen, so a refresh resumes it: the history
+ * entry it belongs to, the typed values, files that finished uploading (by
+ * reference; their bytes stay on the server), and the key that makes a
+ * repeated save return the same item.
+ */
+export interface ManualDraft {
+  entry: string;
+  input: Partial<ItemInput>;
+  idempotencyKey: string;
+  uploads: Attachment[];
+  unfinishedUploads: number;
+  mainPhotoId: number | null;
+}
+
+const ATTACHMENT_KINDS: readonly string[] = ["photo", "invoice", "document"];
+
+function isAttachment(value: unknown): value is Attachment {
+  const candidate = value as Partial<Attachment> | null;
+  return (
+    typeof candidate?.id === "number" &&
+    typeof candidate.filename === "string" &&
+    ATTACHMENT_KINDS.includes(candidate.kind ?? "")
+  );
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function draftFrom(stored: Record<string, unknown>): ManualDraft | null {
+  if (!isObject(stored.input) || typeof stored.entry !== "string") {
+    return null;
+  }
+  const uploads = Array.isArray(stored.uploads) ? stored.uploads : [];
+  return {
+    entry: stored.entry,
+    input: stored.input as Partial<ItemInput>,
+    idempotencyKey:
+      typeof stored.idempotencyKey === "string" ? stored.idempotencyKey : "",
+    uploads: uploads.filter(isAttachment),
+    unfinishedUploads:
+      typeof stored.unfinishedUploads === "number"
+        ? stored.unfinishedUploads
+        : 0,
+    mainPhotoId:
+      typeof stored.mainPhotoId === "number" ? stored.mainPhotoId : null,
+  };
+}
+
+/** An older draft is just the field values, not tied to any history entry. */
+function legacyDraft(stored: Record<string, unknown>): ManualDraft | null {
+  if (typeof stored.name !== "string") {
+    return null;
+  }
+  return {
+    entry: "",
+    input: stored as Partial<ItemInput>,
+    idempotencyKey: "",
+    uploads: [],
+    unfinishedUploads: 0,
+    mainPhotoId: null,
+  };
+}
+
+/** Anything malformed or from another version counts as no draft. */
+export function readManualDraft(key: string): ManualDraft | null {
   try {
     const text = window.sessionStorage.getItem(key);
-    return text ? (JSON.parse(text) as Partial<ItemInput>) : null;
+    const stored: unknown = text ? JSON.parse(text) : null;
+    if (!isObject(stored)) {
+      return null;
+    }
+    if (stored.version === MANUAL_DRAFT_VERSION) {
+      return draftFrom(stored);
+    }
+    return stored.version === undefined ? legacyDraft(stored) : null;
   } catch {
     return null;
   }
 }
 
-export function writeDraft(key: string, input: ItemInput) {
+export function writeManualDraft(key: string, draft: ManualDraft) {
   try {
-    window.sessionStorage.setItem(key, JSON.stringify(input));
+    window.sessionStorage.setItem(
+      key,
+      JSON.stringify({ version: MANUAL_DRAFT_VERSION, ...draft }),
+    );
   } catch {
     // ignore: the form still holds the values in memory
   }

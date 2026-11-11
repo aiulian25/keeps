@@ -47,7 +47,11 @@ To move a complete instance, use a backup instead.
 // ErrFileMissing means a photo or document the items refer to is not in storage.
 var ErrFileMissing = errors.New("file missing from storage")
 
-var csvHeader = []string{"id", "name", "description", "quantity", "brand", "model", "serial_number", "condition", "warranty_until", "measurements", "room", "category", "tags", "collections",
+// ErrFileDamaged means a stored original no longer matches the size and
+// SHA-256 recorded when it was uploaded.
+var ErrFileDamaged = errors.New("file damaged in storage")
+
+var csvHeader = []string{"id", "name", "description", "quantity", "brand", "model", "serial_number", "units", "condition", "warranty_until", "measurements", "room", "category", "tags", "collections",
 	"seller", "order_reference", "price_paid", "currency", "purchase_date", "purchase_date_precision", "notes", "source_url", "created_at", "updated_at"}
 
 // SafeCell neutralises values a spreadsheet would treat as a formula.
@@ -109,7 +113,7 @@ func WriteCSV(ctx context.Context, service *items.Service, householdID int64, de
 		if item.PurchaseDate != nil {
 			date, precision = item.PurchaseDate.Value, item.PurchaseDate.Precision
 		}
-		row := []string{fmt.Sprint(item.ID), item.Name, item.Description, fmt.Sprint(item.Quantity), item.Brand, item.Model, item.SerialNumber,
+		row := []string{fmt.Sprint(item.ID), item.Name, item.Description, fmt.Sprint(item.Quantity), item.Brand, item.Model, item.SerialNumber, items.UnitsSummary(item.Units),
 			item.Condition, item.WarrantyUntil, item.Measurements.Summary(), optionalName(item.Room), optionalName(item.Category), names(item.Tags), names(item.Collections), item.Seller, item.OrderReference,
 			price, currency, date, precision, item.Notes, item.SourceURL, item.CreatedAt, item.UpdatedAt}
 		for index := range row {
@@ -184,6 +188,9 @@ func WriteArchive(ctx context.Context, service *items.Service, database *sql.DB,
 		sum, err := copyAttachment(ctx, database, blobs, archive, householdID, attachmentID, name)
 		if errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("%w: %s (%s)", ErrFileMissing, filename, owner)
+		}
+		if errors.Is(err, ErrFileDamaged) {
+			return "", fmt.Errorf("%w: %s (%s)", ErrFileDamaged, filename, owner)
 		}
 		if err != nil {
 			return "", err
@@ -329,8 +336,8 @@ func readNames(ctx context.Context, database *sql.DB, table string, householdID 
 }
 
 func copyAttachment(ctx context.Context, database *sql.DB, blobs *blob.Store, archive *zip.Writer, householdID int64, attachmentID int64, name string) (string, error) {
-	var key string
-	if err := database.QueryRowContext(ctx, `SELECT storage_key FROM attachments WHERE id = ? AND household_id = ?`, attachmentID, householdID).Scan(&key); err != nil {
+	var key, recordedSHA string
+	if err := database.QueryRowContext(ctx, `SELECT storage_key, sha256 FROM attachments WHERE id = ? AND household_id = ?`, attachmentID, householdID).Scan(&key, &recordedSHA); err != nil {
 		return "", err
 	}
 	file, err := blobs.Open(key)
@@ -338,7 +345,11 @@ func copyAttachment(ctx context.Context, database *sql.DB, blobs *blob.Store, ar
 		return "", fmt.Errorf("file for attachment %d is missing: %w", attachmentID, err)
 	}
 	defer file.Close()
-	return writeEntry(archive, name, file)
+	sum, err := writeEntry(archive, name, file)
+	if err == nil && sum != recordedSHA {
+		return "", ErrFileDamaged
+	}
+	return sum, err
 }
 
 func writeEntry(archive *zip.Writer, name string, content io.Reader) (string, error) {

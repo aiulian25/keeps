@@ -122,28 +122,34 @@ func (s *Service) handleDownload(writer http.ResponseWriter, request *http.Reque
 	return err
 }
 
-type itemReference struct {
-	purchaseID int64
-}
-
-func (s *Service) itemFor(request *http.Request) (int64, int64, itemReference, error) {
+func (s *Service) itemFor(request *http.Request) (int64, int64, error) {
 	identifier, err := httpapi.PathID(request)
 	if err != nil {
-		return 0, 0, itemReference{}, err
+		return 0, 0, err
 	}
 	householdID := auth.PrincipalFromRequest(request).HouseholdID
-	var reference itemReference
-	var purchase sql.NullInt64
-	err = s.store.Database.QueryRowContext(request.Context(), `SELECT purchase_id FROM items WHERE id = ? AND household_id = ? AND deleted_at IS NULL`, identifier, householdID).Scan(&purchase)
+	var found int
+	err = s.store.Database.QueryRowContext(request.Context(), `SELECT 1 FROM items WHERE id = ? AND household_id = ? AND deleted_at IS NULL`, identifier, householdID).Scan(&found)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, 0, itemReference{}, httpapi.ErrNotFound
+		return 0, 0, httpapi.ErrNotFound
 	}
-	reference.purchaseID = purchase.Int64
-	return identifier, householdID, reference, err
+	return identifier, householdID, err
+}
+
+// currentPurchase reads the item's purchase inside the write transaction, so
+// overlapping requests build on each other's purchase instead of each making
+// one and the later replacing the earlier.
+func currentPurchase(ctx context.Context, transaction *sql.Tx, itemID int64, householdID int64) (int64, error) {
+	var purchase sql.NullInt64
+	err := transaction.QueryRowContext(ctx, `SELECT purchase_id FROM items WHERE id = ? AND household_id = ? AND deleted_at IS NULL`, itemID, householdID).Scan(&purchase)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, httpapi.ErrNotFound
+	}
+	return purchase.Int64, err
 }
 
 func (s *Service) handleLink(writer http.ResponseWriter, request *http.Request) error {
-	itemID, householdID, reference, err := s.itemFor(request)
+	itemID, householdID, err := s.itemFor(request)
 	if err != nil {
 		return err
 	}
@@ -154,17 +160,21 @@ func (s *Service) handleLink(writer http.ResponseWriter, request *http.Request) 
 		return err
 	}
 	err = s.store.Transaction(request.Context(), func(transaction *sql.Tx) error {
+		purchaseID, err := currentPurchase(request.Context(), transaction, itemID, householdID)
+		if err != nil {
+			return err
+		}
 		for _, attachmentID := range body.AttachmentIDs {
 			var kind string
 			if err := transaction.QueryRowContext(request.Context(), `SELECT kind FROM attachments WHERE id = ? AND household_id = ?`, attachmentID, householdID).Scan(&kind); err != nil {
 				return httpapi.ErrNotFound
 			}
-			reference.purchaseID, err = items.LinkAttachment(request.Context(), transaction, householdID, itemID, reference.purchaseID, attachmentID, kind)
+			purchaseID, err = items.LinkAttachment(request.Context(), transaction, householdID, itemID, purchaseID, attachmentID, kind)
 			if err != nil {
 				return err
 			}
 		}
-		_, err := transaction.ExecContext(request.Context(), `UPDATE items SET revision = revision + 1, updated_at = ? WHERE id = ?`, store.Now(), itemID)
+		_, err = transaction.ExecContext(request.Context(), `UPDATE items SET revision = revision + 1, updated_at = ? WHERE id = ?`, store.Now(), itemID)
 		return err
 	})
 	if err != nil {
@@ -178,7 +188,7 @@ func (s *Service) handleLink(writer http.ResponseWriter, request *http.Request) 
 // is removed from that purchase, so every item sharing it loses it; the UI
 // warns before this.
 func (s *Service) handleUnlink(writer http.ResponseWriter, request *http.Request) error {
-	itemID, householdID, reference, err := s.itemFor(request)
+	itemID, householdID, err := s.itemFor(request)
 	if err != nil {
 		return err
 	}
@@ -190,13 +200,17 @@ func (s *Service) handleUnlink(writer http.ResponseWriter, request *http.Request
 		return err
 	}
 	err = s.store.Transaction(request.Context(), func(transaction *sql.Tx) error {
+		purchaseID, err := currentPurchase(request.Context(), transaction, itemID, householdID)
+		if err != nil {
+			return err
+		}
 		if _, err := transaction.ExecContext(request.Context(), `DELETE FROM item_attachments WHERE item_id = ? AND attachment_id = ?`, itemID, attachmentID); err != nil {
 			return err
 		}
-		if _, err := transaction.ExecContext(request.Context(), `DELETE FROM purchase_attachments WHERE purchase_id = ? AND attachment_id = ?`, reference.purchaseID, attachmentID); err != nil {
+		if _, err := transaction.ExecContext(request.Context(), `DELETE FROM purchase_attachments WHERE purchase_id = ? AND attachment_id = ?`, purchaseID, attachmentID); err != nil {
 			return err
 		}
-		_, err := transaction.ExecContext(request.Context(), `UPDATE items SET primary_photo_id = (SELECT x.attachment_id FROM item_attachments x JOIN attachments a ON a.id = x.attachment_id
+		_, err = transaction.ExecContext(request.Context(), `UPDATE items SET primary_photo_id = (SELECT x.attachment_id FROM item_attachments x JOIN attachments a ON a.id = x.attachment_id
 				WHERE x.item_id = items.id AND a.kind = 'photo' ORDER BY x.position LIMIT 1)
 			WHERE id = ? AND (primary_photo_id = ? OR primary_photo_id IS NULL)`, itemID, attachmentID)
 		if err != nil {
@@ -213,7 +227,7 @@ func (s *Service) handleUnlink(writer http.ResponseWriter, request *http.Request
 }
 
 func (s *Service) handlePrimaryPhoto(writer http.ResponseWriter, request *http.Request) error {
-	itemID, _, _, err := s.itemFor(request)
+	itemID, _, err := s.itemFor(request)
 	if err != nil {
 		return err
 	}

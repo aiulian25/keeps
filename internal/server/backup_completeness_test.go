@@ -97,7 +97,7 @@ func TestIncompleteBackupIsNamedAndNeedsConsentToRestore(t *testing.T) {
 	if prepared.Status != http.StatusOK || info.Complete {
 		t.Fatalf("a backup missing an invoice was reported complete: %d %s", prepared.Status, prepared.Body)
 	}
-	expected := backup.MissingFile{Filename: "receipt.pdf", Copy: backup.CopyOriginal, Items: []string{"Coffee machine"}}
+	expected := backup.MissingFile{Filename: "receipt.pdf", Copy: backup.CopyOriginal, Items: []string{"Coffee machine"}, Problem: backup.ProblemMissing}
 	if len(info.MissingFiles) != 1 || fmt.Sprint(info.MissingFiles[0]) != fmt.Sprint(expected) {
 		t.Fatalf("missing file not named: %+v", info.MissingFiles)
 	}
@@ -159,6 +159,29 @@ func TestStagingChecksReferencesNotJustTheManifest(t *testing.T) {
 	defer os.RemoveAll(staging)
 	if staged.Complete() || len(staged.MissingFiles) != 1 || staged.MissingFiles[0].Filename != "receipt.pdf" {
 		t.Fatalf("staging trusted the manifest: %+v", staged)
+	}
+
+	// Standalone verification reaches the same verdict as staging, and keeps
+	// nothing behind.
+	scratch := t.TempDir()
+	verified, err := backup.Verify(context.Background(), bytes.NewReader(silent), identity, scratch)
+	if err != nil || verified.Complete() || len(verified.MissingFiles) != 1 || verified.MissingFiles[0].Filename != "receipt.pdf" {
+		t.Fatalf("verification disagreed with staging: %v %+v", err, verified)
+	}
+	if good, err := backup.Verify(context.Background(), bytes.NewReader(complete.Body), identity, scratch); err != nil || !good.Complete() {
+		t.Fatalf("a complete archive did not verify: %v %+v", err, good)
+	}
+	wrongIdentity, _ := age.NewScryptIdentity("not the passphrase")
+	if _, err := backup.Verify(context.Background(), bytes.NewReader(complete.Body), wrongIdentity, scratch); !errors.Is(err, backup.ErrWrongSecret) {
+		t.Fatalf("a wrong passphrase: %v", err)
+	}
+	corrupted := append([]byte{}, complete.Body...)
+	corrupted[len(corrupted)-40] ^= 0xff
+	if _, err := backup.Verify(context.Background(), bytes.NewReader(corrupted), identity, scratch); err == nil {
+		t.Fatal("a corrupted archive verified")
+	}
+	if leftovers, _ := os.ReadDir(scratch); len(leftovers) != 0 {
+		t.Fatalf("verification left plaintext behind: %v", leftovers)
 	}
 }
 
@@ -302,5 +325,84 @@ func TestPreparedDownloadsReportWriteFailuresAndAreSingleUse(t *testing.T) {
 	}
 	if _, found := server.application.downloads.take(strings.TrimPrefix(info.DownloadURL, downloadPathPrefix), 999); found {
 		t.Fatal("another user could take a prepared file")
+	}
+}
+
+// replaceBlobKeepingSize overwrites a stored original with different bytes of
+// the same length, as silent storage damage would.
+func replaceBlobKeepingSize(t *testing.T, server *testServer, key string) {
+	t.Helper()
+	path, err := server.application.Blobs.Path(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := append([]byte{}, original...)
+	changed[len(changed)/2] ^= 0xff
+	if err := os.WriteFile(path, changed, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDamagedOriginalNeverCountsAsComplete(t *testing.T) {
+	server := newTestServer(t)
+	client := server.claimed()
+	key := itemWithInvoice(t, server, client)
+	healthy := client.fetchDownload("/api/v1/backups", map[string]string{"passphrase": backupPassphrase})
+	replaceBlobKeepingSize(t, server, key)
+
+	prepared := client.do(http.MethodPost, "/api/v1/backups", map[string]string{"passphrase": backupPassphrase})
+	var info preparedFile
+	prepared.json(t, &info)
+	if info.Complete || len(info.MissingFiles) != 1 || info.MissingFiles[0].Problem != backup.ProblemDamaged || info.MissingFiles[0].Filename != "receipt.pdf" {
+		t.Fatalf("a damaged receipt was backed up as complete: %s", prepared.Body)
+	}
+	archive := client.do(http.MethodGet, info.DownloadURL, nil)
+	identity, _ := age.NewScryptIdentity(backupPassphrase)
+	if manifest, err := backup.Read(context.Background(), bytes.NewReader(archive.Body), identity, ""); err != nil || manifest.Complete() || len(manifest.Damaged) != 1 {
+		t.Fatalf("the archive does not say the receipt is damaged: %v %+v", err, manifest)
+	}
+
+	if result := client.do(http.MethodPost, "/api/v1/exports", map[string]string{"format": "archive"}); result.code() != "export_file_damaged" || !strings.Contains(string(result.Body), "receipt.pdf") {
+		t.Fatalf("a damaged receipt was exported: %d %s", result.Status, result.Body)
+	}
+
+	// An old archive whose manifest is self-consistent but whose receipt bytes
+	// differ from the upload record is caught when staged.
+	tampered := rewriteArchive(t, healthy.Body, func(name string, content []byte) ([]byte, bool) {
+		if strings.HasSuffix(name, key) {
+			changed := append([]byte{}, content...)
+			changed[len(changed)/2] ^= 0xff
+			return changed, true
+		}
+		return content, true
+	})
+	fresh := newTestServer(t)
+	staging, staged, err := backup.Stage(context.Background(), fresh.application.Configuration.DataDirectory, bytes.NewReader(tampered), identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(staging)
+	if staged.Complete() || len(staged.Damaged) != 1 || staged.MissingFiles[0].Problem != backup.ProblemDamaged {
+		t.Fatalf("staging trusted altered receipt bytes: %+v", staged)
+	}
+	goodStaging, good, err := backup.Stage(context.Background(), fresh.application.Configuration.DataDirectory, bytes.NewReader(healthy.Body), identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(goodStaging)
+	if !good.Complete() {
+		t.Fatalf("an unchanged archive was not complete: %+v", good)
+	}
+
+	client.createItem(map[string]any{"name": "After the backup"})
+	if result := client.restoreAccepting(tampered, false); result.code() != "backup_incomplete" {
+		t.Fatalf("a restore of a damaged receipt did not ask first: %d %s", result.Status, result.Body)
+	}
+	if itemCount(server, "After the backup") != 1 {
+		t.Fatal("a refused restore changed live data")
 	}
 }

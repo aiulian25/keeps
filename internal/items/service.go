@@ -156,6 +156,9 @@ func (s *Service) Update(ctx context.Context, householdID int64, itemID int64, e
 		if before.Revision != expectedRevision {
 			return ErrConflict
 		}
+		if err := unitsBelowQuantity(values.Quantity, len(before.Units)); err != nil {
+			return err
+		}
 		purchaseID, sharedChanged, err := writePurchase(ctx, transaction, householdID, before.PurchaseID, values)
 		if err != nil {
 			return err

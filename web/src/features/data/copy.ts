@@ -16,7 +16,9 @@ export const DATA_COPY = {
 } as const;
 
 export const MISSING_COPY = {
-  label: "Missing photos and documents",
+  label: "Missing or damaged photos and documents",
+  damaged:
+    "— damaged: it no longer matches what was uploaded. Use an older backup or upload it again.",
   copyName: {
     original: "the file itself",
     preview: "its preview",
@@ -56,8 +58,8 @@ export const BACKUP_COPY = {
   incompleteTitle: "This backup is incomplete",
   incompleteText: (count: number) =>
     count === 1
-      ? "1 file Keeps refers to is already missing from storage, so it can't be in the backup. Everything else is. You can still download it, but it can't bring this file back."
-      : `${count} files Keeps refers to are already missing from storage, so they can't be in the backup. Everything else is. You can still download it, but it can't bring these files back.`,
+      ? "1 file Keeps refers to is missing from storage or no longer matches what was uploaded, so the backup can't hold a good copy of it. Everything else is fine. You can still download it."
+      : `${count} files Keeps refers to are missing from storage or no longer match what was uploaded, so the backup can't hold good copies of them. Everything else is fine. You can still download it.`,
   downloadAnyway: "Download anyway",
   startedTitle: "Backup started",
   startedDetail: (filename: string) =>
@@ -86,11 +88,11 @@ export const RESTORE_COPY = {
   stageUpload: "Uploading",
   stageCheck: "Checking",
   stageRestore: "Restoring",
-  incompleteTitle: "This backup is missing files",
+  incompleteTitle: "This backup has missing or damaged files",
   incompleteText: (count: number) =>
     count === 1
-      ? "1 photo or document isn't in this backup. Restoring brings back everything else, but that file will be gone. Nothing has been changed yet."
-      : `${count} photos or documents aren't in this backup. Restoring brings back everything else, but those files will be gone. Nothing has been changed yet.`,
+      ? "1 photo or document in this backup is missing or damaged. Restoring brings back everything else, but that file will be gone or wrong. Nothing has been changed yet."
+      : `${count} photos or documents in this backup are missing or damaged. Restoring brings back everything else, but those files will be gone or wrong. Nothing has been changed yet.`,
   restoreAnyway: "Restore without them",
   doneMissing: (count: number) =>
     count === 1

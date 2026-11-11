@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ApiError } from "../../api/client";
+import { useCallback, useEffect, useState } from "react";
+import { ApiError, STATUS_NOT_FOUND } from "../../api/client";
 import { importsApi } from "../../api/endpoints";
 import type { ImportDraft, ImportState } from "../../api/types";
 import { ERRORS } from "../../constants/copy";
@@ -13,11 +13,17 @@ function isAbort(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-/** Polls one import until it finishes, fails, or runs out of time. */
+/**
+ * Polls one import until it finishes, fails, or this wait runs out. A failed
+ * read or a long wait doesn't end the job on the server: `checkAgain` polls
+ * the same import again. `expired` means the server no longer has it.
+ */
 export function useImportDraft(importId: string) {
   const [draft, setDraft] = useState<ImportDraft | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [expired, setExpired] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -34,6 +40,9 @@ export function useImportDraft(importId: string) {
         if (isAbort(error)) {
           return;
         }
+        setExpired(
+          error instanceof ApiError && error.status === STATUS_NOT_FOUND,
+        );
         setLoadError(
           error instanceof ApiError ? error.message : ERRORS.generic,
         );
@@ -50,7 +59,14 @@ export function useImportDraft(importId: string) {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [importId]);
+  }, [importId, attempt]);
 
-  return { draft, timedOut, loadError };
+  const checkAgain = useCallback(() => {
+    setTimedOut(false);
+    setLoadError("");
+    setExpired(false);
+    setAttempt((count) => count + 1);
+  }, []);
+
+  return { draft, timedOut, loadError, expired, checkAgain };
 }

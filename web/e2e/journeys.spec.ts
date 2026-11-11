@@ -14,6 +14,7 @@ import {
 import path from "node:path";
 import { deflateSync } from "node:zlib";
 import { bootstrapCode, dataDirectory, repositoryRoot } from "./support";
+import { PAGE_SIZE } from "../src/constants/limits";
 
 const capturesDirectory = path.join(
   repositoryRoot,
@@ -159,6 +160,77 @@ test.describe("signed in", () => {
     ).toBeVisible();
     expect(Date.now() - started).toBeLessThan(30_000);
     await expect(page.getByText("Saved")).toBeVisible();
+  });
+
+  test("a refresh keeps the manual form's latest details, uploads and save", async ({
+    page,
+  }) => {
+    const name = "Desk lamp kept over a refresh";
+    const room = () => page.getByLabel("Room");
+    const showDetails = async () => {
+      if (!(await room().isVisible())) {
+        await page.getByRole("button", { name: "More details" }).click();
+      }
+    };
+    await page.goto("/add");
+    await action(page, "Add manually").click();
+    await page.getByLabel("Name").fill(name);
+    await showDetails();
+    await room().fill("Study");
+    await page
+      .locator('input[type="file"]')
+      .nth(0)
+      .setInputFiles(pngFile("lamp.png"));
+    await expect(
+      page.getByRole("button", { name: "Remove lamp.png" }),
+    ).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByLabel("Name")).toHaveValue(name);
+    await showDetails();
+    await expect(room()).toHaveValue("Study");
+    await expect(
+      page.getByRole("button", { name: "Remove lamp.png" }),
+    ).toBeVisible();
+
+    // The first save reaches the server, but its answer is lost.
+    let answerLost = false;
+    await page.route("**/api/v1/items", async (route) => {
+      if (answerLost || route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+      answerLost = true;
+      await route.fetch();
+      await route.abort("connectionreset");
+    });
+    await page.getByRole("button", { name: "Save item" }).click();
+    await expect(page.getByText(/Couldn't reach Keeps/)).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Name")).toHaveValue(name);
+    await page.getByRole("button", { name: "Save item" }).click();
+    await expect(page.getByRole("heading", { name })).toBeVisible();
+    const itemId = new URL(page.url()).pathname.split("/").pop();
+    const found = await (
+      await page.request.get(`/api/v1/items?q=${encodeURIComponent(name)}`)
+    ).json();
+    expect(found.total).toBe(1);
+    const saved = await (
+      await page.request.get(`/api/v1/items/${itemId}`)
+    ).json();
+    expect(saved.photos).toHaveLength(1);
+
+    // A new hand-over starts clean and resumes its own draft.
+    await page.goto("/add");
+    await action(page, "Add manually").click();
+    await page.getByLabel("Name").fill("First entry, left open");
+    await page.goto("/add");
+    await action(page, "Upload receipt").click();
+    await expect(page.getByLabel("Name")).toHaveValue("");
+    await page.getByLabel("Name").fill("Second entry");
+    await page.reload();
+    await expect(page.getByLabel("Name")).toHaveValue("Second entry");
+    await page.getByRole("button", { name: "Cancel" }).click();
   });
 
   test("manual item with photo, invoice, price, date and new room", async ({
@@ -448,6 +520,92 @@ test.describe("signed in", () => {
     await expect(page.getByText("VB-14")).toHaveCount(0);
   });
 
+  test("matching units keep their own serials, and the quantity can't fall below them", async ({
+    page,
+  }) => {
+    const unitsPanel = page.getByRole("button", { name: /Individual units/ });
+    await page.goto("/add/manual");
+    await page.getByLabel(/^Name/).fill("Pair of bookshelf speakers");
+    await page.getByRole("button", { name: "Save item" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Pair of bookshelf speakers" }),
+    ).toBeVisible();
+    const itemId = new URL(page.url()).pathname.split("/").pop();
+    await expect(unitsPanel).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Edit" }).first().click();
+    await page.getByLabel(/^Quantity/).fill("2");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(
+      page.getByRole("button", { name: "Save changes" }),
+    ).toBeHidden();
+
+    await page.getByRole("button", { name: "Individual units" }).click();
+    await page.getByRole("button", { name: "Identify a unit" }).click();
+    await page.getByRole("button", { name: "Save unit" }).click();
+    await expect(
+      page.getByText(
+        "Enter a label, like Left speaker, or the unit's serial number.",
+      ),
+    ).toBeVisible();
+    await page.getByLabel(/^Label/).fill("Left speaker");
+    await page.getByLabel(/^Serial number/).fill("SN-L1");
+    await page.getByRole("button", { name: "Save unit" }).click();
+    await expect(
+      page.getByRole("button", { name: "Individual units (1 of 2)" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Identify a unit" }).click();
+    await page.getByLabel(/^Serial number/).fill("SN-R2");
+    await page.getByRole("button", { name: "Save unit" }).click();
+    await expect(
+      page.getByRole("button", { name: "Individual units (2 of 2)" }),
+    ).toBeVisible();
+    await expect(page.getByText("Unit 2", { exact: true })).toBeVisible();
+    await expect(page.getByText("SN-R2")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Every unit is identified. Raise the quantity to identify another.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Identify a unit" }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "Edit Left speaker" }).click();
+    await page.getByLabel(/^Serial number/).fill("SN-L1B");
+    await page.getByRole("button", { name: "Save unit" }).click();
+    await expect(page.getByText("SN-L1B")).toBeVisible();
+    await capture(page, "08-units-dark");
+    await expectAccessible(page, "units");
+
+    // Lowering the quantity asks which unit is gone instead of guessing.
+    await page.getByRole("button", { name: "Edit" }).first().click();
+    await page.getByLabel(/^Quantity/).fill("1");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(
+      page.getByText(/2 units are identified under Individual units/),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Remove Unit 2" }).click();
+    await expect(
+      page.getByRole("button", { name: "Individual units (1 of 2)" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(
+      page.getByRole("button", { name: "Save changes" }),
+    ).toBeHidden();
+
+    const saved = await (
+      await page.request.get(`/api/v1/items/${itemId}`)
+    ).json();
+    expect(saved.quantity).toBe(1);
+    expect(saved.units).toEqual([
+      expect.objectContaining({
+        label: "Left speaker",
+        serialNumber: "SN-L1B",
+      }),
+    ]);
+    await expect(page.getByText("SN-L1B")).toBeVisible();
+  });
+
   test("a preset fills only empty details and keeps what was typed", async ({
     page,
     context,
@@ -526,6 +684,74 @@ test.describe("signed in", () => {
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Poor", { exact: true })).toBeVisible();
     await expect(page.getByText(/In warranty until/)).toBeVisible();
+    await other.close();
+  });
+
+  test("an open edit doesn't overwrite another tab's save after adding a part", async ({
+    page,
+    context,
+  }) => {
+    const conflictTitle = page.getByText(/was changed somewhere else/);
+    await page.goto("/add/manual");
+    await page.getByLabel("Name").fill("Lamp edited around a part");
+    await page.getByRole("button", { name: "Save item" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Lamp edited around a part" }),
+    ).toBeVisible();
+    const itemUrl = page.url();
+    const itemId = new URL(itemUrl).pathname.split("/").pop();
+
+    await page.getByRole("button", { name: "Edit" }).first().click();
+    await page.getByLabel(/^Notes/).fill("Bulb is E14");
+
+    const other = await context.newPage();
+    await other.goto(itemUrl);
+    await other.getByRole("button", { name: "Edit" }).first().click();
+    await other.getByLabel(/^Name/).fill("Lamp renamed elsewhere");
+    await other.getByRole("button", { name: "Save changes" }).click();
+    await expect(
+      other.getByRole("heading", { name: "Lamp renamed elsewhere" }),
+    ).toBeVisible();
+
+    // A part saved while the form is open refreshes the item behind it.
+    await page.getByRole("button", { name: "Parts and consumables" }).click();
+    await page.getByRole("button", { name: "Add a part" }).click();
+    await page.getByLabel("Part", { exact: true }).fill("E14 bulb");
+    await page.getByRole("button", { name: "Save part" }).click();
+    await expect(
+      page.getByRole("button", { name: "Parts and consumables (1)" }),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(conflictTitle).toBeVisible();
+    await page.getByRole("button", { name: "Reload" }).click();
+    await expect(page.getByLabel(/^Name/)).toHaveValue(
+      "Lamp renamed elsewhere",
+    );
+    await page.getByLabel(/^Notes/).fill("Bulb is E14");
+
+    // Another save lands after the comparison: that one is caught too.
+    await other.getByRole("button", { name: "Edit" }).first().click();
+    await other.getByLabel(/Condition/).selectOption({ label: "Fair" });
+    await other.getByRole("button", { name: "Save changes" }).click();
+    await expect(other.getByText("Fair", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(conflictTitle).toBeVisible();
+    await page.getByRole("button", { name: "Reload" }).click();
+    await expect(page.getByLabel(/Condition/)).toHaveValue("fair");
+    await page.getByLabel(/^Notes/).fill("Bulb is E14");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(
+      page.getByRole("button", { name: "Save changes" }),
+    ).toBeHidden();
+
+    const saved = await (
+      await page.request.get(`/api/v1/items/${itemId}`)
+    ).json();
+    expect(saved.name).toBe("Lamp renamed elsewhere");
+    expect(saved.notes).toBe("Bulb is E14");
+    expect(saved.condition).toBe("fair");
+    expect(saved.parts).toHaveLength(1);
     await other.close();
   });
 
@@ -817,6 +1043,85 @@ test.describe("add to keeps button", () => {
     await capture(review, "05-review-from-button-dark");
     await expectAccessible(review, "review from button");
     expect(review.url()).not.toContain("#");
+  });
+
+  test("a lost status check or a long wait looks at the same import again instead of starting another", async ({
+    page,
+    context,
+  }) => {
+    await page.goto("/add/button");
+    const buttonLink = page
+      .getByText("Add to Keeps", { exact: true })
+      .locator("xpath=ancestor-or-self::a");
+    await expect(buttonLink).toHaveAttribute("href", /^javascript:/);
+    const bookmark = await buttonLink.getAttribute("href");
+    await context.route("https://shop.example/**", (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: `<html><head><title>Desk fan | Shop</title>
+          <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Quiet desk fan","offers":{"@type":"Offer","price":"39.00","priceCurrency":"GBP"}}</script>
+          </head><body></body></html>`,
+      }),
+    );
+    let importsStarted = 0;
+    let statusChecks: "lose" | "queued" | "real" = "lose";
+    await context.route("**/api/v1/imports**", async (route) => {
+      const request = route.request();
+      if (request.method() === "POST") {
+        importsStarted++;
+        await route.fallback();
+        return;
+      }
+      if (request.method() !== "GET" || statusChecks === "real") {
+        await route.fallback();
+        return;
+      }
+      if (statusChecks === "lose") {
+        statusChecks = "real";
+        await route.abort("internetdisconnected");
+        return;
+      }
+      // Answer as if the job were still waiting behind others.
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        json: { ...(await response.json()), state: "queued" },
+      });
+    });
+    const shop = await context.newPage();
+    await shop.goto("https://shop.example/office/fan");
+    const keepsTab = context.waitForEvent("page");
+    await shop.evaluate(
+      decodeURIComponent(bookmark!.slice("javascript:".length)),
+    );
+    const importPage = await keepsTab;
+    const checkAgain = importPage.getByRole("button", { name: "Check again" });
+    const review = importPage.getByRole("heading", { name: "Review item" });
+    await expect(checkAgain).toBeVisible();
+    await expect(importPage.getByText(/Couldn't reach Keeps/)).toBeVisible();
+    await checkAgain.click();
+    await expect(review).toBeVisible();
+    await expect(
+      importPage.getByRole("textbox", { name: /^Name/ }).first(),
+    ).toHaveValue("Quiet desk fan");
+    expect(importsStarted).toBe(1);
+
+    // The same import, kept waiting past the page's own limit.
+    await importPage.clock.install();
+    statusChecks = "queued";
+    await importPage.reload();
+    await expect(
+      importPage.getByText(/Getting details from shop\.example/),
+    ).toBeVisible();
+    await importPage.clock.fastForward("00:30");
+    await expect(checkAgain).toBeVisible();
+    await expect(
+      importPage.getByText("Still getting the details"),
+    ).toBeVisible();
+    statusChecks = "real";
+    await checkAgain.click();
+    await expect(review).toBeVisible();
+    expect(importsStarted).toBe(1);
   });
 
   test("a failed button capture can be retried after a refresh, or entered manually with its details", async ({
@@ -1246,6 +1551,162 @@ test.describe("photos and documents", () => {
     await page.keyboard.press("Escape");
   });
 
+  test("an interrupted cover is dropped and a transparent photo looks the same in the copy", async ({
+    page,
+  }) => {
+    // 40×40 RGBA PNG: transparent, with an opaque white mark top-left and an
+    // opaque red block on the right half.
+    const size = 40;
+    const pixelFor = (mark: boolean, red: boolean) => {
+      if (mark) return [255, 255, 255, 255];
+      if (red) return [220, 0, 0, 255];
+      return [0, 0, 0, 0];
+    };
+    const rows: Buffer[] = [];
+    for (let y = 0; y < size; y++) {
+      const row = [0];
+      for (let x = 0; x < size; x++) {
+        const mark = x >= 4 && x < 14 && y >= 4 && y < 14;
+        const red = x >= size / 2;
+        row.push(...pixelFor(mark, red));
+      }
+      rows.push(Buffer.from(row));
+    }
+    const crcTable = Array.from({ length: 256 }, (_, n) => {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      return c >>> 0;
+    });
+    const crc = (buffer: Buffer) => {
+      let c = 0xffffffff;
+      for (const byte of buffer) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+      return (c ^ 0xffffffff) >>> 0;
+    };
+    const chunk = (type: string, data: Buffer) => {
+      const length = Buffer.alloc(4);
+      length.writeUInt32BE(data.length);
+      const body = Buffer.concat([Buffer.from(type), data]);
+      const checksum = Buffer.alloc(4);
+      checksum.writeUInt32BE(crc(body));
+      return Buffer.concat([length, body, checksum]);
+    };
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(size, 0);
+    header.writeUInt32BE(size, 4);
+    header[8] = 8;
+    header[9] = 6;
+    const png = Buffer.concat([
+      Buffer.from("\x89PNG\r\n\x1a\n", "binary"),
+      chunk("IHDR", header),
+      chunk("IDAT", deflateSync(Buffer.concat(rows))),
+      chunk("IEND", Buffer.alloc(0)),
+    ]);
+
+    await page.goto("/add/manual");
+    await page.getByLabel("Name").fill("Transparent label check");
+    await page.locator('input[type="file"]').nth(1).setInputFiles({
+      name: "transparent.png",
+      mimeType: "image/png",
+      buffer: png,
+    });
+    await expect(page.getByText("transparent.png")).toBeVisible();
+    await page.getByRole("button", { name: "Save item" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Transparent label check" }),
+    ).toBeVisible();
+    await page.goto(new URL("documents", page.url() + "/").pathname);
+    await page
+      .getByRole("button", { name: "Create a sharing copy of transparent.png" })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Sharing copy of transparent.png",
+    });
+    const canvas = dialog.getByRole("img", { name: "Page 1" });
+    await expect(canvas).toBeVisible();
+    const download = dialog.getByRole("button", {
+      name: "Download sharing copy",
+    });
+
+    const pointer = (type: string, x: number, y: number) =>
+      canvas.evaluate(
+        (element, event) => {
+          const bounds = element.getBoundingClientRect();
+          element.dispatchEvent(
+            new PointerEvent(event.type, {
+              bubbles: true,
+              pointerId: 7,
+              clientX: bounds.left + bounds.width * event.x,
+              clientY: bounds.top + bounds.height * event.y,
+            }),
+          );
+        },
+        { type, x, y },
+      );
+    const previewAt = (x: number, y: number) =>
+      canvas.evaluate(
+        (element, point) => {
+          const surface = element as HTMLCanvasElement;
+          const context = surface.getContext("2d")!;
+          return Array.from(
+            context
+              .getImageData(
+                Math.floor(surface.width * point.x),
+                Math.floor(surface.height * point.y),
+                1,
+                1,
+              )
+              .data.slice(0, 3),
+          );
+        },
+        { x, y },
+      );
+    await pointer("pointerdown", 0.6, 0.2);
+    await pointer("pointermove", 0.95, 0.9);
+    await expect(download).toBeDisabled();
+    expect(Math.max(...(await previewAt(0.8, 0.5)))).toBeLessThan(40);
+    await pointer("pointercancel", 0.95, 0.9);
+    await expect(download).toBeEnabled();
+    await expect(dialog.getByText("0 areas covered")).toBeVisible();
+    const previewRed = await previewAt(0.8, 0.5);
+    const previewClear = await previewAt(0.2, 0.8);
+    expect(previewRed[0]).toBeGreaterThan(180);
+    expect(Math.min(...previewClear)).toBeGreaterThan(240);
+
+    const downloadPromise = page.waitForEvent("download");
+    await download.click();
+    const file = await downloadPromise;
+    const copyPath = path.join(dataDirectory, file.suggestedFilename());
+    await file.saveAs(copyPath);
+    const decoded = await page.evaluate(async (encoded) => {
+      const binary = Uint8Array.from(atob(encoded), (character) =>
+        character.charCodeAt(0),
+      );
+      const bitmap = await createImageBitmap(
+        new Blob([binary], { type: "image/jpeg" }),
+      );
+      const surface = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const context = surface.getContext("2d")!;
+      context.drawImage(bitmap, 0, 0);
+      const at = (x: number, y: number) =>
+        Array.from(
+          context
+            .getImageData(
+              Math.floor(bitmap.width * x),
+              Math.floor(bitmap.height * y),
+              1,
+              1,
+            )
+            .data.slice(0, 3),
+        );
+      return { red: at(0.8, 0.5), clear: at(0.2, 0.8), mark: at(0.22, 0.22) };
+    }, readFileSync(copyPath).toString("base64"));
+    expect(decoded.red[0]).toBeGreaterThan(180);
+    expect(decoded.red[1]).toBeLessThan(60);
+    expect(Math.min(...decoded.clear)).toBeGreaterThan(215);
+    expect(Math.min(...decoded.mark)).toBeGreaterThan(215);
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+  });
+
   test("a sharing copy hides what was covered and carries nothing but pixels", async ({
     page,
   }) => {
@@ -1350,6 +1811,64 @@ test.describe("photos and documents", () => {
     await expect(viewer.getByText("1 page")).toBeVisible({ timeout: 15_000 });
     await page.keyboard.press("Escape");
   });
+
+  test("trashing from a long list keeps every other item reachable, and Undo brings it back", async ({
+    page,
+  }) => {
+    const prefix = "Boundary shelf";
+    await page.goto("/items");
+    await page.evaluate(
+      async ({ prefix, count }) => {
+        const session = await (await fetch("/api/v1/session")).json();
+        for (let number = 1; number <= count; number++) {
+          const response = await fetch("/api/v1/items", {
+            method: "POST",
+            headers: {
+              "X-CSRF-Token": session.csrfToken,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: `${prefix} ${String(number).padStart(2, "0")}`,
+            }),
+          });
+          if (!response.ok) throw new Error(`seed ${response.status}`);
+        }
+      },
+      { prefix, count: PAGE_SIZE + 1 },
+    );
+    const actions = page.getByRole("button", {
+      name: new RegExp(`^Actions for ${prefix}`),
+    });
+    const loadMore = page.getByRole("button", { name: "Load more" });
+    const everyName = async () => {
+      while (await loadMore.isVisible()) {
+        const shown = await actions.count();
+        await loadMore.click();
+        await expect(actions).not.toHaveCount(shown);
+      }
+      return actions.evaluateAll((buttons) =>
+        buttons.map((button) => button.getAttribute("aria-label")),
+      );
+    };
+
+    await page.goto(`/items?q=${encodeURIComponent(prefix)}`);
+    await expect(actions).toHaveCount(PAGE_SIZE);
+    const trashed = await actions.first().getAttribute("aria-label");
+    await actions.first().click();
+    await page.getByRole("menuitem", { name: "Move to trash" }).click();
+    await expect(page.getByText("Moved to Recently deleted")).toBeVisible();
+    await expect(actions).toHaveCount(PAGE_SIZE);
+    const survivors = await everyName();
+    expect(survivors).toHaveLength(PAGE_SIZE);
+    expect(new Set(survivors).size).toBe(PAGE_SIZE);
+    expect(survivors).not.toContain(trashed);
+
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(loadMore).toBeVisible();
+    const restored = await everyName();
+    expect(new Set(restored).size).toBe(PAGE_SIZE + 1);
+    expect(restored).toContain(trashed);
+  });
 });
 
 /** Every stored file written after `since`, so a test can take them away. */
@@ -1426,7 +1945,9 @@ test.describe("incomplete backups", () => {
       await restore.getByRole("button", { name: "Continue" }).click();
       await restore.getByRole("button", { name: "Replace my data" }).click();
       await expect(
-        restore.getByRole("heading", { name: "This backup is missing files" }),
+        restore.getByRole("heading", {
+          name: "This backup has missing or damaged files",
+        }),
       ).toBeVisible({ timeout: 30_000 });
       await expect(restore.getByText(/lamp\.png/).first()).toBeVisible();
       await capture(page, "12-restore-incomplete-dark");

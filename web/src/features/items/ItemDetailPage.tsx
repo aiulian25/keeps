@@ -30,6 +30,7 @@ import { useSession } from "../../session/SessionContext";
 import { ItemEditor, type EditConflict } from "./ItemEditor";
 import { ItemFacts } from "./ItemFacts";
 import { CompatibleParts } from "./CompatibleParts";
+import { UnitIdentifiers } from "./UnitIdentifiers";
 import { ItemHistory } from "./ItemHistory";
 import { inputFromItem, sameInput } from "./itemInput";
 import { DETAIL_COPY } from "./itemsCopy";
@@ -43,6 +44,18 @@ const CONFLICT_CODE = "edit_conflict";
 const STATUS_CONFLICT = 409;
 
 type Mode = "view" | "edit";
+
+// The values an edit started from and the revision they were read at. They
+// only move together, so a background refresh (after a part or photo change)
+// can't give stale form values a newer revision.
+interface EditBaseline {
+  input: ItemInput;
+  revision: number;
+}
+
+function baselineFrom(item: Item): EditBaseline {
+  return { input: inputFromItem(item), revision: item.revision };
+}
 
 /** Panel 08 plus UX-10/UX-11: view, inline price edit, full edit with conflict handling. */
 export function ItemDetailPage() {
@@ -113,10 +126,10 @@ function ItemDetail({ item, onItemChange, reload }: ItemDetailProps) {
   const [savedToken, setSavedToken] = useState<number | null>(
     incoming.saved ? 1 : null,
   );
-  const [baseline, setBaseline] = useState<ItemInput>(() =>
-    inputFromItem(item),
+  const [baseline, setBaseline] = useState<EditBaseline>(() =>
+    baselineFrom(item),
   );
-  const [draft, setDraft] = useState<ItemInput>(baseline);
+  const [draft, setDraft] = useState<ItemInput>(baseline.input);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -129,7 +142,7 @@ function ItemDetail({ item, onItemChange, reload }: ItemDetailProps) {
   const historySection = useRef<HTMLDivElement>(null);
 
   const dirty =
-    mode === "edit" && (!sameInput(draft, baseline) || conflict !== null);
+    mode === "edit" && (!sameInput(draft, baseline.input) || conflict !== null);
   const blocker = useBlocker(dirty);
 
   useEffect(() => {
@@ -147,9 +160,9 @@ function ItemDetail({ item, onItemChange, reload }: ItemDetailProps) {
   };
 
   const startEdit = () => {
-    const input = inputFromItem(item);
-    setBaseline(input);
-    setDraft(input);
+    const fresh = baselineFrom(item);
+    setBaseline(fresh);
+    setDraft(fresh.input);
     setMode("edit");
   };
 
@@ -189,7 +202,7 @@ function ItemDetail({ item, onItemChange, reload }: ItemDetailProps) {
     setErrors({});
     setFormError("");
     try {
-      markSaved(await itemsApi.update(item.id, item.revision, draft));
+      markSaved(await itemsApi.update(item.id, baseline.revision, draft));
       exitEdit();
       window.requestAnimationFrame(() => heading.current?.focus());
     } catch (error) {
@@ -202,10 +215,10 @@ function ItemDetail({ item, onItemChange, reload }: ItemDetailProps) {
   const reloadAfterConflict = async () => {
     setReloading(true);
     try {
-      const latest = inputFromItem(await reload());
-      setConflict({ stage: "compare", mine: draft, latest });
+      const latest = baselineFrom(await reload());
+      setConflict({ stage: "compare", mine: draft, latest: latest.input });
       setBaseline(latest);
-      setDraft(latest);
+      setDraft(latest.input);
     } catch {
       setFormError(ERRORS.generic);
     } finally {
@@ -439,6 +452,12 @@ function ItemDetail({ item, onItemChange, reload }: ItemDetailProps) {
               />
             </>
           )}
+          <UnitIdentifiers
+            itemId={item.id}
+            quantity={item.quantity}
+            units={item.units}
+            onChanged={reload}
+          />
           <CompatibleParts
             itemId={item.id}
             parts={item.parts}

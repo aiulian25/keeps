@@ -1,26 +1,20 @@
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 import { importsApi } from "../../api/endpoints";
+import type { ImportDraft } from "../../api/types";
 import type { ItemInput } from "../../api/types";
 import { ROUTES } from "../../constants/routes";
 import type { AddItemState, ManualItemState } from "../add/manualState";
 import { candidatesOf, fieldsFromCandidate } from "./candidateInput";
-import { CLIENT_TIMEOUT_CODE, RETRYABLE_CODES } from "./copy";
+import { IMPORT_COPY, RETRYABLE_CODES, STILL_WAITING_CODE } from "./copy";
 import { ImportProblem, ImportProgress } from "./ImportStatus";
 import { ReviewImport } from "./ReviewImport";
 import { useImportDraft } from "./useImportDraft";
 
-function problemCodeFor(
-  failed: boolean,
-  errorCode: string | undefined,
-  loadError: string,
-) {
-  if (loadError) {
-    return "";
+function partialFieldsOf(draft: ImportDraft | null) {
+  if (!draft || draft.candidates.length === 0) {
+    return undefined;
   }
-  if (failed) {
-    return errorCode ?? "";
-  }
-  return CLIENT_TIMEOUT_CODE;
+  return fieldsFromCandidate(candidatesOf(draft)[0]);
 }
 
 export function ImportPage() {
@@ -32,7 +26,8 @@ export function ImportPage() {
 function ImportFlow({ importId }: { importId: string }) {
   const navigate = useNavigate();
   const handedUrl = ((useLocation().state ?? {}) as AddItemState).url ?? "";
-  const { draft, timedOut, loadError } = useImportDraft(importId);
+  const { draft, timedOut, loadError, expired, checkAgain } =
+    useImportDraft(importId);
   const sourceUrl = draft?.sourceUrl || handedUrl;
 
   const goManual = (focusInvoice: boolean, fields?: Partial<ItemInput>) => {
@@ -82,19 +77,34 @@ function ImportFlow({ importId }: { importId: string }) {
     );
   }
 
-  const code = problemCodeFor(failed, draft?.errorCode, loadError);
-  const partialFields =
-    draft && draft.candidates.length > 0
-      ? fieldsFromCandidate(candidatesOf(draft)[0])
-      : undefined;
+  const partialFields = partialFieldsOf(draft);
+  const addManually = () => goManual(false, partialFields);
+  const uploadReceipt = () => goManual(true, partialFields);
+  // Not known to have ended: look at the same job again instead of starting
+  // another, which would fetch the shop page a second time.
+  const mayStillRun = !failed && !expired;
+  if (mayStillRun) {
+    return (
+      <ImportProblem
+        code={STILL_WAITING_CODE}
+        reason={loadError}
+        onAddManually={addManually}
+        onUploadReceipt={uploadReceipt}
+        onRetry={checkAgain}
+        retryLabel={IMPORT_COPY.checkAgain}
+      />
+    );
+  }
+
+  const code = expired ? "" : (draft?.errorCode ?? "");
   const canRetry =
-    sourceUrl !== "" && (RETRYABLE_CODES.includes(code) || loadError !== "");
+    sourceUrl !== "" && (expired || RETRYABLE_CODES.includes(code));
   return (
     <ImportProblem
       code={code}
       reason={loadError}
-      onAddManually={() => goManual(false, partialFields)}
-      onUploadReceipt={() => goManual(true, partialFields)}
+      onAddManually={addManually}
+      onUploadReceipt={uploadReceipt}
       onRetry={canRetry ? retry : undefined}
     />
   );

@@ -115,7 +115,9 @@ docker compose run --rm -T keeps verify-backup /data/backups/<file>.keeps.age --
 
 Use `--identity-file` instead if the backup was made with a key.
 
-`backup` and `verify-backup` say **complete** only when every referenced photo and document is in the file. If some were already missing from storage, they still keep or check the backup, list the missing files, and exit with an error, so a scheduled job notices.
+`verify-backup` checks the backup the way a restore would: every file against the backup's checksums, the database's integrity, and every photo and document the database refers to. It writes only the backup's database to a private temporary folder (in `$TMPDIR`, or `/tmp`) and always deletes it. It exits with an error for a wrong passphrase, a damaged backup, or a backup with missing or damaged files.
+
+`backup` and `verify-backup` say **complete** only when every referenced photo and document is in the file, and every original matches the size and SHA-256 recorded when it was uploaded. If some were missing from storage or damaged, they still keep or check the backup, list the missing files, and exit with an error, so a scheduled job notices.
 
 Backups and exports from the app are written completely on the server before the download starts. They need free space in the data volume roughly the size of the backup, and the prepared file is removed as soon as it is downloaded or after 15 minutes.
 

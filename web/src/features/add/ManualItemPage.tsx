@@ -18,20 +18,20 @@ import { ItemFields } from "../items/ItemFields";
 import { emptyItemInput } from "../items/itemInput";
 import { MANUAL_COPY, MANUAL_DRAFT_STORAGE_KEY, PRESET_COPY } from "./copy";
 import type { ManualItemState } from "./manualState";
-import { clearDraft, readDraft, writeDraft } from "./sessionDraft";
+import {
+  clearDraft,
+  readManualDraft,
+  writeManualDraft,
+  type ManualDraft,
+} from "./sessionDraft";
 import { ROUTES } from "../../constants/routes";
 import { useGoBack } from "../../hooks/useGoBack";
 import { useItemSave } from "./useItemSave";
 import { CapturePresetDialog } from "./CapturePresetDialog";
 import styles from "./Add.module.css";
 
-/** A hand-over from another screen wins over a draft left from earlier. */
-function initialInput(handover: ManualItemState): ItemInput {
-  const empty = emptyItemInput();
-  if (Object.keys(handover).length === 0) {
-    return { ...empty, ...readDraft(MANUAL_DRAFT_STORAGE_KEY) };
-  }
-  const input: ItemInput = { ...empty, ...handover.fields };
+function inputFromHandover(handover: ManualItemState): ItemInput {
+  const input: ItemInput = { ...emptyItemInput(), ...handover.fields };
   input.seller = handover.seller || input.seller;
   input.orderReference = handover.orderReference || input.orderReference;
   input.purchaseDate = handover.purchaseDate ?? input.purchaseDate;
@@ -42,17 +42,47 @@ function initialInput(handover: ManualItemState): ItemInput {
   return input;
 }
 
+/**
+ * Where the form starts. A refresh (the same history entry) resumes its own
+ * draft, so the hand-over that opened it is used only once. A new hand-over
+ * starts fresh; a visit without one picks up a draft left from earlier.
+ */
+function startingDraft(entry: string, handover: ManualItemState): ManualDraft {
+  const stored = readManualDraft(MANUAL_DRAFT_STORAGE_KEY);
+  const handedOver = Object.keys(handover).length > 0;
+  const resumable = stored !== null && (stored.entry === entry || !handedOver);
+  if (resumable) {
+    return {
+      ...stored,
+      entry,
+      idempotencyKey: stored.idempotencyKey || newIdempotencyKey(),
+    };
+  }
+  return {
+    entry,
+    input: inputFromHandover(handover),
+    idempotencyKey: newIdempotencyKey(),
+    uploads: [],
+    unfinishedUploads: 0,
+    mainPhotoId: null,
+  };
+}
+
 /** Panel 07: only the name is required; files upload while you type. */
 export function ManualItemPage() {
   const leave = useGoBack(ROUTES.items);
-  const handover = (useLocation().state ?? {}) as ManualItemState;
+  const location = useLocation();
+  const handover = (location.state ?? {}) as ManualItemState;
   const { account } = useSession();
-  const [input, setInput] = useState(() => initialInput(handover));
-  const [idempotencyKey] = useState(newIdempotencyKey);
-  const uploads = useUploads();
+  const [start] = useState(() => startingDraft(location.key, handover));
+  const [input, setInput] = useState<ItemInput>(() => ({
+    ...emptyItemInput(),
+    ...start.input,
+  }));
+  const uploads = useUploads(undefined, start.uploads);
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [chosenMainPhotoId, setChosenMainPhotoId] = useState<number | null>(
-    null,
+    start.mainPhotoId,
   );
   const uploadedPhotoIds = uploads.uploads.flatMap((upload) =>
     upload.kind === "photo" && upload.attachment ? [upload.attachment.id] : [],
@@ -64,7 +94,19 @@ export function ManualItemPage() {
     useItemSave();
   const invoiceZone = useRef<HTMLDivElement>(null);
 
-  useEffect(() => writeDraft(MANUAL_DRAFT_STORAGE_KEY, input), [input]);
+  useEffect(() => {
+    const finished = uploads.uploads.flatMap((upload) =>
+      upload.status === "done" && upload.attachment ? [upload.attachment] : [],
+    );
+    writeManualDraft(MANUAL_DRAFT_STORAGE_KEY, {
+      entry: start.entry,
+      input,
+      idempotencyKey: start.idempotencyKey,
+      uploads: finished,
+      unfinishedUploads: uploads.uploads.length - finished.length,
+      mainPhotoId: chosenMainPhotoId,
+    });
+  }, [start, input, uploads.uploads, chosenMainPhotoId]);
 
   useEffect(() => {
     if (handover.focusInvoice) {
@@ -85,7 +127,7 @@ export function ManualItemPage() {
       mainPhotoId,
     );
     save(
-      () => itemsApi.create({ ...input, attachmentIds }, idempotencyKey),
+      () => itemsApi.create({ ...input, attachmentIds }, start.idempotencyKey),
       () => clearDraft(MANUAL_DRAFT_STORAGE_KEY),
     );
   };
@@ -122,6 +164,11 @@ export function ManualItemPage() {
               </p>
             )}
           </div>
+        )}
+        {start.unfinishedUploads > 0 && (
+          <p className="muted small">
+            {MANUAL_COPY.chooseAgain(start.unfinishedUploads)}
+          </p>
         )}
         <ItemFields
           value={input}

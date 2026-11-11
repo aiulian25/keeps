@@ -2,7 +2,7 @@ import type { MissingFile } from "../../api/types";
 import { MISSING_COPY } from "./copy";
 import styles from "./Data.module.css";
 
-/** Names every file a backup lacks, with the items it belonged to. */
+/** Names every file a backup lacks or holds damaged, with its items. */
 export function MissingFilesList({ files }: { files: MissingFile[] }) {
   return (
     <ul className={styles.missingList} aria-label={MISSING_COPY.label}>
@@ -15,6 +15,7 @@ export function MissingFilesList({ files }: { files: MissingFile[] }) {
               ? file.items.join(", ")
               : MISSING_COPY.notLinked,
           )}
+          {file.problem === "damaged" && ` ${MISSING_COPY.damaged}`}
         </li>
       ))}
     </ul>

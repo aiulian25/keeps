@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/aiulian25/keeps/internal/config"
 	"github.com/aiulian25/keeps/internal/secrets"
 	"github.com/aiulian25/keeps/internal/store"
+	"github.com/go-webauthn/webauthn/webauthn"
 )
 
 func newAdmissionService(t *testing.T) *Service {
@@ -76,5 +78,54 @@ func TestAnonymousPasskeyStartsAreBounded(t *testing.T) {
 	service.store.Database.Exec(`UPDATE webauthn_challenges SET expires_at = ?`, store.FormatTime(time.Now().Add(-time.Minute)))
 	if _, err := service.BeginPasskeyLogin(ctx, "198.51.100.3"); err != nil {
 		t.Fatalf("expired challenges did not release capacity: %v", err)
+	}
+}
+
+// fillChallenges stores count unexpired anonymous sign-in challenges.
+func fillChallenges(t *testing.T, service *Service, count int) {
+	t.Helper()
+	future := store.FormatTime(time.Now().Add(time.Minute))
+	for index := range count {
+		if _, err := service.store.Database.Exec(`INSERT INTO webauthn_challenges (id, user_id, ceremony, session_json, expires_at) VALUES (?, NULL, ?, '{}', ?)`,
+			fmt.Sprintf("filler-%d", index), ceremonyLogin, future); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func anonymousChallengeCount(service *Service) int {
+	var count int
+	service.store.Database.QueryRow(`SELECT count(*) FROM webauthn_challenges WHERE user_id IS NULL`).Scan(&count)
+	return count
+}
+
+func TestTheLastChallengePlaceIsGivenOnce(t *testing.T) {
+	service, principal := claimedForRace(t)
+	ctx := context.Background()
+	fillChallenges(t, service, config.PasskeyLoginChallengesMaximum-1)
+
+	// Both starts pass the early check before either stores its challenge.
+	for range 2 {
+		if err := service.admitLoginChallenge(ctx); err != nil {
+			t.Fatalf("a start was refused with a place left: %v", err)
+		}
+	}
+	var limited *ErrRateLimited
+	if _, err := service.storeChallenge(ctx, 0, ceremonyLogin, &webauthn.SessionData{}); err != nil {
+		t.Fatalf("the first start did not get the last place: %v", err)
+	}
+	if _, err := service.storeChallenge(ctx, 0, ceremonyLogin, &webauthn.SessionData{}); !errors.As(err, &limited) {
+		t.Fatalf("the second start was not refused: %v", err)
+	}
+	if count := anonymousChallengeCount(service); count != config.PasskeyLoginChallengesMaximum {
+		t.Fatalf("%d anonymous challenges are kept, more than the cap", count)
+	}
+
+	if _, err := service.storeChallenge(ctx, principal.UserID, ceremonyRegistration, &webauthn.SessionData{}); err != nil {
+		t.Fatalf("a signed-in registration was refused by the anonymous cap: %v", err)
+	}
+	service.store.Database.Exec(`UPDATE webauthn_challenges SET expires_at = ? WHERE id = 'filler-0'`, store.FormatTime(time.Now().Add(-time.Minute)))
+	if _, err := service.BeginPasskeyLogin(ctx, "198.51.100.20"); err != nil {
+		t.Fatalf("an expired challenge did not free its place: %v", err)
 	}
 }

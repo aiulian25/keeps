@@ -47,12 +47,14 @@ type Manifest struct {
 	CreatedAt     string        `json:"createdAt"`
 	Files         []FileEntry   `json:"files"`
 	Missing       []string      `json:"missing,omitempty"`
+	Damaged       []string      `json:"damaged,omitempty"`
 	MissingFiles  []MissingFile `json:"missingFiles,omitempty"`
 }
 
-// Complete reports whether every file the database refers to is in the archive.
+// Complete reports whether every file the database refers to is in the
+// archive with the bytes recorded when it was uploaded.
 func (m Manifest) Complete() bool {
-	return len(m.Missing) == 0
+	return len(m.Missing) == 0 && len(m.Damaged) == 0
 }
 
 // MissingFile names a referenced file that is not in the archive, in terms
@@ -61,13 +63,25 @@ type MissingFile struct {
 	Filename string   `json:"filename"`
 	Copy     string   `json:"copy"`
 	Items    []string `json:"items"`
+	// Problem is ProblemMissing (not in the archive) or ProblemDamaged (its
+	// bytes differ from those recorded at upload). Older archives leave it
+	// empty, which means missing.
+	Problem string `json:"problem"`
+}
+
+// recordedOriginal is what the database recorded about an original upload.
+type recordedOriginal struct {
+	sha256 string
+	size   int64
 }
 
 const (
-	CopyOriginal  = "original"
-	CopyPreview   = "preview"
-	CopyThumbnail = "thumbnail"
-	itemSeparator = "\x1f"
+	CopyOriginal   = "original"
+	CopyPreview    = "preview"
+	CopyThumbnail  = "thumbnail"
+	ProblemMissing = "missing"
+	ProblemDamaged = "damaged"
+	itemSeparator  = "\x1f"
 )
 
 // Sources is what a backup reads from.
@@ -96,6 +110,10 @@ func Write(ctx context.Context, sources Sources, destination io.Writer, recipien
 		return Manifest{}, fmt.Errorf("database snapshot: %w", err)
 	}
 	schemaVersion, blobKeys, err := inspectSnapshot(ctx, snapshotPath)
+	if err != nil {
+		return Manifest{}, err
+	}
+	originals, err := recordedOriginals(ctx, snapshotPath)
 	if err != nil {
 		return Manifest{}, err
 	}
@@ -137,8 +155,13 @@ func Write(ctx context.Context, sources Sources, destination io.Writer, recipien
 		if err := add(blobPrefix+key[:2]+"/"+key, path); err != nil {
 			return Manifest{}, err
 		}
+		// The bytes are kept either way: a damaged original may still be
+		// the best copy left, but the backup must not call it complete.
+		if originals.damaged(key, manifest.Files[len(manifest.Files)-1]) {
+			manifest.Damaged = append(manifest.Damaged, key)
+		}
 	}
-	manifest.MissingFiles, err = describeMissing(ctx, snapshotPath, manifest.Missing)
+	manifest.MissingFiles, err = describeMissing(ctx, snapshotPath, manifest.Missing, manifest.Damaged)
 	if err != nil {
 		return Manifest{}, err
 	}
@@ -215,15 +238,51 @@ func inspectSnapshot(ctx context.Context, path string) (int, []string, error) {
 	return schemaVersion, keys, rows.Err()
 }
 
-// describeMissing turns missing storage keys into the files and items they
-// belong to, read from the database that refers to them.
-func describeMissing(ctx context.Context, databasePath string, missing []string) ([]MissingFile, error) {
-	if len(missing) == 0 {
+// recordedOriginals reads the size and SHA-256 recorded for every original
+// upload, keyed by storage key. Previews and thumbnails have no record.
+func recordedOriginals(ctx context.Context, databasePath string) (originalRecords, error) {
+	database, err := sql.Open("sqlite", "file:"+filepath.ToSlash(databasePath)+"?mode=ro")
+	if err != nil {
+		return nil, err
+	}
+	defer database.Close()
+	rows, err := database.QueryContext(ctx, `SELECT storage_key, sha256, size_bytes FROM attachments`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	records := originalRecords{}
+	for rows.Next() {
+		var key string
+		var record recordedOriginal
+		if err := rows.Scan(&key, &record.sha256, &record.size); err != nil {
+			return nil, err
+		}
+		records[key] = record
+	}
+	return records, rows.Err()
+}
+
+type originalRecords map[string]recordedOriginal
+
+// damaged reports whether an archived original differs from its upload record.
+func (records originalRecords) damaged(key string, archived FileEntry) bool {
+	record, isOriginal := records[key]
+	return isOriginal && (record.sha256 != archived.SHA256 || record.size != archived.Size)
+}
+
+// describeMissing turns missing and damaged storage keys into the files and
+// items they belong to, read from the database that refers to them.
+func describeMissing(ctx context.Context, databasePath string, missing []string, damaged []string) ([]MissingFile, error) {
+	if len(missing) == 0 && len(damaged) == 0 {
 		return nil, nil
 	}
-	isMissing := map[string]bool{}
+	problems := map[string]string{}
 	for _, key := range missing {
-		isMissing[key] = true
+		problems[key] = ProblemMissing
+	}
+	for _, key := range damaged {
+		problems[key] = ProblemDamaged
 	}
 	database, err := sql.Open("sqlite", "file:"+filepath.ToSlash(databasePath)+"?mode=ro")
 	if err != nil {
@@ -250,8 +309,8 @@ func describeMissing(ctx context.Context, databasePath string, missing []string)
 			items = strings.Split(itemNames, itemSeparator)
 		}
 		for _, copy := range []struct{ key, name string }{{original, CopyOriginal}, {preview, CopyPreview}, {thumbnail, CopyThumbnail}} {
-			if copy.key != "" && isMissing[copy.key] {
-				described = append(described, MissingFile{Filename: filename, Copy: copy.name, Items: items})
+			if problem := problems[copy.key]; copy.key != "" && problem != "" {
+				described = append(described, MissingFile{Filename: filename, Copy: copy.name, Items: items, Problem: problem})
 			}
 		}
 	}

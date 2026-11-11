@@ -21,6 +21,7 @@ import { Chip } from "../../components/Bits";
 import { Button, IconButton } from "../../components/Button";
 import { MoneyField } from "../../components/form/MoneyField";
 import { COMMON, ERRORS } from "../../constants/copy";
+import { SINGLE_QUANTITY } from "../../constants/limits";
 import { ROUTES } from "../../constants/routes";
 import { formatSize, formatWeight } from "./measurements";
 import { conditionLabel, ITEM_COPY } from "./copy";
@@ -35,8 +36,6 @@ const DATE_LENGTH = 10;
 import { DETAIL_COPY } from "./itemsCopy";
 import { LongText } from "./LongText";
 import styles from "./ItemDetail.module.css";
-
-const SINGLE_QUANTITY = 1;
 
 interface FactProps {
   label: string;

@@ -54,6 +54,7 @@ export interface Item {
   warrantyUntil: string;
   measurements: Measurements | null;
   parts: Part[];
+  units: Unit[];
   notes: string;
   seller: string;
   orderReference: string;
@@ -131,6 +132,15 @@ export interface Part {
 
 export type PartInput = Omit<Part, "id">;
 
+/** One of several matching belongings saved as one item, told apart by its label or printed serial. */
+export interface Unit {
+  id: number;
+  label: string;
+  serialNumber: string;
+}
+
+export type UnitInput = Omit<Unit, "id">;
+
 /** Optional sizes and weight, kept exactly as typed, with their units. */
 export interface Measurements {
   width: string;
@@ -195,6 +205,8 @@ export interface MissingFile {
   filename: string;
   copy: "original" | "preview" | "thumbnail";
   items: string[];
+  /** "damaged": stored bytes differ from the upload; "" (older backups) means missing. */
+  problem: "missing" | "damaged" | "";
 }
 
 /** A backup or export the server finished writing, ready to download once. */

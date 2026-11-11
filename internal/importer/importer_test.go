@@ -3,6 +3,8 @@ package importer
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"image"
 	"image/png"
@@ -11,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/aiulian25/keeps/internal/attachments"
 	"github.com/aiulian25/keeps/internal/blob"
@@ -239,5 +242,38 @@ func TestFailedImageIsNotGivenToOtherVariants(t *testing.T) {
 	}
 	if _, err := service.Save(ctx, 1, 1, draft.ID, 0, items.Input{Name: "Second variant", AttachmentIDs: loaded.Candidates[0].ImageIDs}, ""); err != nil {
 		t.Fatalf("second variant could not be saved: %v", err)
+	}
+}
+
+func TestImportedPhotoWithAnOversizedExtensionStillImports(t *testing.T) {
+	oddImage := "https://shop.example/photo." + strings.Repeat("a", 2*attachments.FilenameMaximumRunes)
+	page := []byte(`<html><head><meta property="og:title" content="Desk lamp"><meta property="og:image" content="` + oddImage + `"></head></html>`)
+	fetcher := &fakeFetcher{pages: map[string][]byte{
+		"https://shop.example/p/odd":     page,
+		oddImage:                         pngImage(),
+		"https://shop.example/p/normal":  []byte(`<html><head><meta property="og:title" content="Chair"><meta property="og:image" content="https://shop.example/chair.png"></head></html>`),
+		"https://shop.example/chair.png": pngImage(),
+	}}
+	service, database := newTestService(t, fetcher)
+	ctx := context.Background()
+
+	for _, pageURL := range []string{"https://shop.example/p/odd", "https://shop.example/p/normal"} {
+		draft, err := service.Start(ctx, 1, 1, pageURL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !service.processNext(ctx) {
+			t.Fatalf("%s was not processed", pageURL)
+		}
+		loaded, _ := service.Get(ctx, 1, draft.ID)
+		if loaded.State != StateDone || len(loaded.Candidates) != 1 || len(loaded.Candidates[0].ImageIDs) != 1 {
+			t.Fatalf("%s: %+v", pageURL, loaded)
+		}
+		var filename, checksum string
+		database.Database.QueryRow(`SELECT filename, sha256 FROM attachments WHERE id = ?`, loaded.Candidates[0].ImageIDs[0]).Scan(&filename, &checksum)
+		original := sha256.Sum256(pngImage())
+		if filename == "" || utf8.RuneCountInString(filename) > attachments.FilenameMaximumRunes || checksum != hex.EncodeToString(original[:]) {
+			t.Fatalf("%s stored %q (%d runes) with checksum %s", pageURL, filename, utf8.RuneCountInString(filename), checksum)
+		}
 	}
 }

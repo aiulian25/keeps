@@ -73,11 +73,15 @@ function boxBetween(
 function RedactablePage({
   page,
   number,
+  locked,
   onChange,
+  onDrawingChange,
 }: {
   page: SharingPage;
   number: number;
+  locked: boolean;
   onChange: (page: SharingPage) => void;
+  onDrawingChange: (drawing: boolean) => void;
 }) {
   const preview = useRef<HTMLCanvasElement>(null);
   const [start, setStart] = useState<{ x: number; y: number } | null>(null);
@@ -94,8 +98,28 @@ function RedactablePage({
   }, [page, draft]);
 
   const begin = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
+    if (locked) {
+      return;
+    }
+    // Capture keeps the drag going outside the canvas; some pointers can't be
+    // captured, and the drag still works without it.
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // continue uncaptured
+    }
     setStart(normalised(event, event.currentTarget));
+    onDrawingChange(true);
+  };
+  // An interrupted drag (cancelled, or capture lost) is dropped visibly, so
+  // the preview never shows a cover the copy won't have.
+  const abandon = () => {
+    if (!start) {
+      return;
+    }
+    setStart(null);
+    setDraft(null);
+    onDrawingChange(false);
   };
   const move = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     if (start) {
@@ -109,6 +133,7 @@ function RedactablePage({
     const box = boxBetween(start, normalised(event, event.currentTarget));
     setStart(null);
     setDraft(null);
+    onDrawingChange(false);
     if (box.width > MINIMUM_BOX_FRACTION && box.height > MINIMUM_BOX_FRACTION) {
       onChange({ ...page, boxes: [...page.boxes, box] });
     }
@@ -150,6 +175,8 @@ function RedactablePage({
         onPointerDown={begin}
         onPointerMove={move}
         onPointerUp={end}
+        onPointerCancel={abandon}
+        onLostPointerCapture={abandon}
       />
     </li>
   );
@@ -170,6 +197,7 @@ export function RedactionDialog({
   const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [drawingPage, setDrawingPage] = useState<number | null>(null);
   const isPdf = attachment.mediaType === PDF_MEDIA_TYPE;
 
   useEffect(() => {
@@ -242,7 +270,7 @@ export function RedactionDialog({
             variant="primary"
             busy={busy}
             onClick={download}
-            disabled={pages === null}
+            disabled={pages === null || drawingPage !== null}
           >
             {REDACTION_COPY.download}
           </Button>
@@ -269,7 +297,11 @@ export function RedactionDialog({
                 key={index}
                 page={page}
                 number={index + 1}
+                locked={busy}
                 onChange={(next) => update(index, next)}
+                onDrawingChange={(drawing) =>
+                  setDrawingPage(drawing ? index : null)
+                }
               />
             ))}
           </ol>

@@ -1,8 +1,14 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"sync"
 	"testing"
 )
 
@@ -104,4 +110,104 @@ func hasReceiptCount(t *testing.T, client *testClient) int {
 	}
 	client.do(http.MethodGet, "/api/v1/items?hasReceipt=1", nil).json(t, &page)
 	return page.Total
+}
+
+// heldBody keeps a request waiting at its first read, after the handler has
+// looked the item up, until every overlapping request has got that far.
+type heldBody struct {
+	content io.Reader
+	arrived *sync.WaitGroup
+	release <-chan struct{}
+	once    sync.Once
+}
+
+func (b *heldBody) arrive() {
+	b.once.Do(b.arrived.Done)
+}
+
+func (b *heldBody) Read(buffer []byte) (int, error) {
+	b.arrive()
+	<-b.release
+	return b.content.Read(buffer)
+}
+
+// linkTogether sends one link request per invoice straight to the handler and
+// lets them continue only once all are reading their bodies.
+func (c *testClient) linkTogether(t *testing.T, itemID int64, invoices ...int64) []int {
+	t.Helper()
+	handler, err := c.server.application.Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var arrived, finished sync.WaitGroup
+	release := make(chan struct{})
+	statuses := make([]int, len(invoices))
+	address, _ := url.Parse(c.server.http.URL)
+	arrived.Add(len(invoices))
+	finished.Add(len(invoices))
+	for index, invoice := range invoices {
+		encoded, _ := json.Marshal(map[string]any{"attachmentIds": []int64{invoice}})
+		body := &heldBody{content: bytes.NewReader(encoded), arrived: &arrived, release: release}
+		request := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/items/%d/attachments", testOrigin, itemID), body)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Origin", c.origin)
+		request.Header.Set("X-CSRF-Token", c.csrf)
+		for _, cookie := range c.client.Jar.Cookies(address) {
+			request.AddCookie(cookie)
+		}
+		go func() {
+			defer finished.Done()
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			// A request answered before reading its body still counts as arrived.
+			body.arrive()
+			statuses[index] = recorder.Code
+		}()
+	}
+	arrived.Wait()
+	close(release)
+	finished.Wait()
+	return statuses
+}
+
+func TestOverlappingLinkRequestsKeepEveryReceipt(t *testing.T) {
+	server := newTestServer(t)
+	client := server.claimed()
+	item := client.createItem(map[string]any{"name": "Name only"})
+	receipt, warranty := client.uploadInvoice(t, "receipt.pdf"), client.uploadInvoice(t, "warranty.pdf")
+	for _, status := range client.linkTogether(t, item.ID, receipt, warranty) {
+		if status != http.StatusNoContent {
+			t.Fatalf("an overlapping link failed: %d", status)
+		}
+	}
+	documents := func() int {
+		var reloaded itemResponse
+		client.do(http.MethodGet, fmt.Sprintf("/api/v1/items/%d", item.ID), nil).json(t, &reloaded)
+		return len(reloaded.Documents)
+	}
+	if documents() != 2 || purchaseCount(server) != 1 {
+		t.Fatalf("overlapping links kept %d of 2 receipts in %d purchases", documents(), purchaseCount(server))
+	}
+
+	client.linkTogether(t, item.ID, receipt, warranty)
+	if documents() != 2 || purchaseCount(server) != 1 {
+		t.Fatalf("repeating the links gave %d receipts in %d purchases", documents(), purchaseCount(server))
+	}
+
+	if result := client.do(http.MethodDelete, fmt.Sprintf("/api/v1/items/%d/attachments/%d", item.ID, receipt), nil); result.Status != http.StatusNoContent {
+		t.Fatalf("unlink: %d %s", result.Status, result.Body)
+	}
+	if documents() != 1 {
+		t.Fatalf("unlinking one receipt left %d", documents())
+	}
+
+	trashed := client.createItem(map[string]any{"name": "Deleted"})
+	client.do(http.MethodDelete, fmt.Sprintf("/api/v1/items/%d", trashed.ID), nil)
+	late := client.uploadInvoice(t, "late.pdf")
+	if result := client.do(http.MethodPost, fmt.Sprintf("/api/v1/items/%d/attachments", trashed.ID), map[string]any{"attachmentIds": []int64{late}}); result.Status != http.StatusNotFound {
+		t.Fatalf("linking to a deleted item answered %d", result.Status)
+	}
+	if purchaseCount(server) != 1 {
+		t.Fatal("a refused link left a purchase behind")
+	}
 }

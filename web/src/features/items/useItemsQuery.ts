@@ -75,21 +75,6 @@ export function useItemsQuery(query: ItemQuery) {
     }
   }, [current, query, key]);
 
-  const removeItem = useCallback(
-    (id: number) =>
-      setResult((previous) => {
-        if (!previous) {
-          return previous;
-        }
-        return {
-          ...previous,
-          items: previous.items.filter((item) => item.id !== id),
-          total: Math.max(0, previous.total - 1),
-        };
-      }),
-    [],
-  );
-
   const reload = useCallback(() => setReloadCount((count) => count + 1), []);
 
   return {
@@ -100,7 +85,6 @@ export function useItemsQuery(query: ItemQuery) {
     failed: current?.failed ?? false,
     loadingMore,
     loadMore,
-    removeItem,
     reload,
   };
 }

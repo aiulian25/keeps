@@ -29,6 +29,8 @@ import type {
   SessionSummary,
   Theme,
   TotpSetup,
+  Unit,
+  UnitInput,
 } from "./types";
 
 export const sessionApi = {
@@ -166,6 +168,12 @@ export const itemsApi = {
     request<Part>("PUT", `/items/${id}/parts/${partId}`, { body: part }),
   removePart: (id: number, partId: number) =>
     request<undefined>("DELETE", `/items/${id}/parts/${partId}`),
+  addUnit: (id: number, unit: UnitInput) =>
+    request<Unit>("POST", `/items/${id}/units`, { body: unit }),
+  updateUnit: (id: number, unitId: number, unit: UnitInput) =>
+    request<Unit>("PUT", `/items/${id}/units/${unitId}`, { body: unit }),
+  removeUnit: (id: number, unitId: number) =>
+    request<undefined>("DELETE", `/items/${id}/units/${unitId}`),
   linkAttachments: (id: number, attachmentIds: number[]) =>
     request<undefined>("POST", `/items/${id}/attachments`, {
       body: { attachmentIds },

@@ -36,9 +36,14 @@ func (s *Service) findUserByUsername(ctx context.Context, username string) (user
 	return user, err
 }
 
-func (s *Service) findUserByID(ctx context.Context, userID int64) (userCredentials, error) {
+// rowQuerier is a database or a transaction.
+type rowQuerier interface {
+	QueryRowContext(ctx context.Context, query string, arguments ...any) *sql.Row
+}
+
+func findUserByID(ctx context.Context, querier rowQuerier, userID int64) (userCredentials, error) {
 	var user userCredentials
-	err := s.store.Database.QueryRowContext(ctx, `SELECT u.id, u.household_id, u.password_hash, coalesce(t.enabled, 0)
+	err := querier.QueryRowContext(ctx, `SELECT u.id, u.household_id, u.password_hash, coalesce(t.enabled, 0)
 		FROM users u LEFT JOIN totp_credentials t ON t.user_id = u.id WHERE u.id = ?`, userID).
 		Scan(&user.ID, &user.HouseholdID, &user.PasswordHash, &user.TOTPEnabled)
 	return user, err
@@ -66,21 +71,51 @@ func (s *Service) SignInWithPassword(ctx context.Context, username string, passw
 	if err != nil {
 		return SignInResult{}, err
 	}
-	if !valid {
+	var result SignInResult
+	if valid {
+		result, err = s.issuePasswordSession(ctx, user, userAgent)
+	}
+	rejected := !valid || errors.Is(err, ErrInvalidCredentials)
+	if rejected {
 		s.recordFailure(ctx, subjects...)
 		audit.Record(ctx, s.store.Database, user.HouseholdID, user.ID, audit.SignInFailed, "")
 		return SignInResult{}, ErrInvalidCredentials
 	}
-	s.clearFailures(ctx, userSubject(username))
-
-	token, expires, err := s.createSession(ctx, s.store.Database, user.ID, user.TOTPEnabled, userAgent)
 	if err != nil {
 		return SignInResult{}, err
 	}
-	if !user.TOTPEnabled {
-		audit.Record(ctx, s.store.Database, user.HouseholdID, user.ID, audit.SignedIn, "password")
-	}
-	return SignInResult{Token: token, Expires: expires, AwaitingSecondFactor: user.TOTPEnabled}, nil
+	s.clearFailures(ctx, userSubject(username))
+	return result, nil
+}
+
+// issuePasswordSession reads the account again in the transaction that
+// creates the session. A password changed, or a second factor enabled, while
+// the password was being checked decides the outcome, so the change's own
+// sign-out of existing sessions can't be outrun.
+func (s *Service) issuePasswordSession(ctx context.Context, verified userCredentials, userAgent string) (SignInResult, error) {
+	var result SignInResult
+	err := s.store.Transaction(ctx, func(transaction *sql.Tx) error {
+		current, err := findUserByID(ctx, transaction, verified.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrInvalidCredentials
+		}
+		if err != nil {
+			return err
+		}
+		if current.PasswordHash != verified.PasswordHash {
+			return ErrInvalidCredentials
+		}
+		token, expires, err := s.createSession(ctx, transaction, current.ID, current.TOTPEnabled, userAgent)
+		if err != nil {
+			return err
+		}
+		result = SignInResult{Token: token, Expires: expires, AwaitingSecondFactor: current.TOTPEnabled}
+		if current.TOTPEnabled {
+			return nil
+		}
+		return audit.Record(ctx, transaction, current.HouseholdID, current.ID, audit.SignedIn, "password")
+	})
+	return result, err
 }
 
 // CompleteSecondFactor exchanges a pending session plus a valid TOTP or
@@ -150,7 +185,7 @@ func (s *Service) Reauthenticate(ctx context.Context, principal Principal, passw
 }
 
 func (s *Service) confirmIdentity(ctx context.Context, userID int64, password string, code string, recoveryCode string) error {
-	user, err := s.findUserByID(ctx, userID)
+	user, err := findUserByID(ctx, s.store.Database, userID)
 	if err != nil {
 		return err
 	}

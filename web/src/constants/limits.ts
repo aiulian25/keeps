@@ -3,6 +3,7 @@ export const SAVED_BADGE_MS = 2500;
 export const TOAST_MS = 6000;
 export const IMPORT_POLL_MS = 800;
 export const PAGE_SIZE = 48;
+export const SINGLE_QUANTITY = 1;
 const MAXIMUM_UPLOAD_MEGABYTES = 20;
 const BYTES_PER_MEGABYTE = 1_048_576;
 export const MAXIMUM_UPLOAD_BYTES =

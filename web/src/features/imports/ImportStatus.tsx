@@ -42,6 +42,7 @@ interface ProblemProps {
   onAddManually: () => void;
   onUploadReceipt: () => void;
   onRetry?: () => void;
+  retryLabel?: string;
 }
 
 /** Panel 06: what happened, in two lines, and one click to carry on. */
@@ -51,6 +52,7 @@ export function ImportProblem({
   onAddManually,
   onUploadReceipt,
   onRetry,
+  retryLabel = IMPORT_COPY.tryAgain,
 }: ProblemProps) {
   const text = PROBLEM_COPY[code] ?? GENERIC_PROBLEM;
   return (
@@ -70,7 +72,7 @@ export function ImportProblem({
       </div>
       {onRetry && (
         <button type="button" className={styles.textButton} onClick={onRetry}>
-          {IMPORT_COPY.tryAgain}
+          {retryLabel}
         </button>
       )}
       {BUTTON_HELPS.has(code) && (

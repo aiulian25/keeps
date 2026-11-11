@@ -22,6 +22,7 @@ export const IMPORT_COPY = {
   addManually: "Add manually",
   uploadReceipt: "Upload receipt",
   tryAgain: "Try again",
+  checkAgain: "Check again",
 } as const;
 
 interface ProblemText {
@@ -79,9 +80,15 @@ export const PROBLEM_COPY: Record<string, ProblemText> = {
     reason:
       "That link points somewhere Keeps can't reach. Add the item yourself.",
   },
+  still_waiting: {
+    title: "Still getting the details",
+    reason:
+      "Keeps hasn't finished with this page yet, or is still working through earlier ones. Check again, or add the item yourself — your link is kept.",
+  },
 };
 
 export const RETRYABLE_CODES = ["timeout", "fetch_failed"];
-export const CLIENT_TIMEOUT_CODE = "timeout";
+/** The job may still be running: this page lost touch with it, or stopped waiting. */
+export const STILL_WAITING_CODE = "still_waiting";
 
 export const REVIEW_PRICE_PLACEHOLDER = "e.g. 79";

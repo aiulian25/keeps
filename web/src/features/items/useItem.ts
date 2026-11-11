@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError } from "../../api/client";
+import { ApiError, STATUS_NOT_FOUND } from "../../api/client";
 import { itemsApi } from "../../api/endpoints";
 import type { Item, Revision } from "../../api/types";
-
-const STATUS_NOT_FOUND = 404;
 
 type LoadState =
   | { itemId: number; item: Item; problem: null }

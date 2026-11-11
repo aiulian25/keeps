@@ -276,6 +276,7 @@ type Item struct {
 	Documents          []Attachment      `json:"documents"`
 	Listing            *Listing          `json:"listing"`
 	Parts              []Part            `json:"parts"`
+	Units              []Unit            `json:"units"`
 	SourceURL          string            `json:"sourceUrl"`
 	FieldSources       map[string]string `json:"fieldSources"`
 	Revision           int64             `json:"revision"`

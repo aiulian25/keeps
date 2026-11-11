@@ -74,9 +74,9 @@ docker compose start keeps
 
 Use `--identity-file` for backups made with an age key.
 
-**A backup with missing files.** If a photo or document was already missing from storage when the backup was made, the backup can't contain it. Keeps lists each one (file name and item) and asks before restoring: in the app, choose **Restore without them**; on the command line, add `--accept-incomplete`. Everything else is restored, so keep incomplete backups rather than deleting them.
+**A backup with missing files.** If a photo or document was already missing from storage when the backup was made, the backup can't contain it. Keeps lists each one (file name and item) and asks before restoring: in the app, choose **Restore without them**; on the command line, add `--accept-incomplete`. Everything else is restored, so keep incomplete backups rather than deleting them. A file can also be **damaged**: still there, but no longer matching the size and checksum recorded when it was uploaded (disk or storage errors). Keeps reports damaged files the same way, by name and item, keeps their bytes in the backup in case they're still useful, and asks before restoring. A damaged original can only be put right from an older backup that still has the good copy, or by uploading the file again.
 
-The previous data is kept in a `rollback-<time>` folder inside the data volume. Once you have checked the restore, delete it to free space.
+The previous data is kept in a new `rollback-<time>-<random>` folder inside the data volume; the command line prints its exact name. Each restore makes its own folder and never touches older ones. Once you have checked the restore, delete it to free space.
 
 Passkeys only work if Keeps is still served from the same hostname as when they were added.
 
@@ -84,13 +84,15 @@ Passkeys only work if Keeps is still served from the same hostname as when they 
 
 If a restore fails after it started replacing data, Keeps moves your previous data back and checks that it opens. When that works you see "your previous data was put back", and nothing else is needed.
 
+**The browser closed or lost its connection during a restore.** Until the file is fully checked, nothing changes. Once Keeps starts replacing data it finishes on its own (or puts the previous data back), even with the page gone. Open Keeps again: if you're asked to sign in with the account from the backup, the restore finished. If you're still signed in as before, your previous data is in place; restore again if you still want the backup.
+
 If Keeps can't confirm that, it stops serving requests and shows "recovery needed", so nothing is changed further. Both copies are kept:
 
-- The previous data is in a `rollback-<time>` folder inside the data volume.
+- The previous data is in a `rollback-<time>-<random>` folder inside the data volume. Several restores in the same second each get their own folder.
 - The command line prints the exact folder.
 
 To recover by hand:
 
 1. Stop Keeps and copy the whole data volume somewhere safe first.
-2. Move `keeps.db`, `keys/` and `blobs/` from the `rollback-<time>` folder back to the top of the data volume, replacing the ones there, and delete any `keeps.db-wal` and `keeps.db-shm` files next to `keeps.db`.
-3. Start Keeps and sign in. Delete the `rollback-<time>` folder only after checking your items, photos and documents.
+2. Move `keeps.db`, `keys/` and `blobs/` from the `rollback-<time>-<random>` folder back to the top of the data volume, replacing the ones there, and delete any `keeps.db-wal` and `keeps.db-shm` files next to `keeps.db`.
+3. Start Keeps and sign in. Delete the `rollback-<time>-<random>` folder only after checking your items, photos and documents.
