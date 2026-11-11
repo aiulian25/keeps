@@ -606,6 +606,179 @@ test.describe("signed in", () => {
     await expect(page.getByText("SN-L1B")).toBeVisible();
   });
 
+  test("adding from a room's page starts the item in that room, by hand or from a link", async ({
+    page,
+  }) => {
+    const roomField = page.getByLabel(/^Room/);
+    const expectBikeShed = async () => {
+      await expect(roomField).toBeVisible();
+      await expect(roomField).toHaveValue("Bike shed");
+    };
+    await page.goto("/items");
+    const roomId = await page.evaluate(async () => {
+      const session = await (await fetch("/api/v1/session")).json();
+      const response = await fetch("/api/v1/groups/rooms", {
+        method: "POST",
+        headers: {
+          "X-CSRF-Token": session.csrfToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Bike shed" }),
+      });
+      if (!response.ok) throw new Error(`room ${response.status}`);
+      return (await response.json()).id as number;
+    });
+
+    // From all items, nothing picks a room.
+    await page.getByRole("link", { name: "Add item" }).first().click();
+    await page.getByRole("button", { name: "Add manually" }).click();
+    await expect(roomField).toBeHidden();
+    await page.getByRole("button", { name: "Cancel" }).click();
+
+    await page.goto(`/items?room=${roomId}`);
+    await expect(
+      page.getByRole("heading", { name: "Bike shed" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Add item" }).first().click();
+    await page.getByRole("button", { name: "Add manually" }).click();
+    await expectBikeShed();
+    await page.getByLabel(/^Name/).fill("Tyre inflator");
+    await page.getByRole("button", { name: "Save item" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Tyre inflator" }),
+    ).toBeVisible();
+    const itemId = new URL(page.url()).pathname.split("/").pop();
+    const saved = await (
+      await page.request.get(`/api/v1/items/${itemId}`)
+    ).json();
+    expect(saved.room?.name).toBe("Bike shed");
+
+    // A shop link started from the room keeps it, through the review and
+    // into Add manually instead.
+    const draft = {
+      id: "bike-shed-link",
+      state: "done",
+      sourceUrl: "https://shop.example/inflator",
+      sourceHost: "shop.example",
+      candidates: [
+        {
+          name: "Cordless inflator",
+          description: "",
+          brand: "",
+          model: "",
+          sku: "",
+          listingPrice: null,
+          availability: "",
+          seller: "",
+          imageIds: [],
+        },
+      ],
+      pageTitle: "Cordless inflator",
+      partial: false,
+    };
+    await page.route("**/api/v1/imports**", (route) =>
+      route.fulfill({ json: draft }),
+    );
+    await page.goto(`/items?room=${roomId}`);
+    await page.getByRole("link", { name: "Add item" }).first().click();
+    await page.getByLabel(/^Product link/).fill(draft.sourceUrl);
+    await page.getByRole("button", { name: "Get details" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Review item" }),
+    ).toBeVisible();
+    await expectBikeShed();
+    await page.getByRole("button", { name: "Add manually instead" }).click();
+    await expect(page.getByLabel(/^Name/)).toHaveValue("Cordless inflator");
+    await expectBikeShed();
+
+    // Still fetching: Add manually instead on the progress screen keeps it.
+    await page.unroute("**/api/v1/imports**");
+    await page.route("**/api/v1/imports**", (route) =>
+      route.fulfill({ json: { ...draft, state: "running", candidates: [] } }),
+    );
+    await page.goto(`/items?room=${roomId}`);
+    await page.getByRole("link", { name: "Add item" }).first().click();
+    await page.getByLabel(/^Product link/).fill(draft.sourceUrl);
+    await page.getByRole("button", { name: "Get details" }).click();
+    await page.getByRole("button", { name: "Add manually instead" }).click();
+    await expect(page.getByLabel(/^Name/)).toHaveValue("");
+    await expectBikeShed();
+    await page.unroute("**/api/v1/imports**");
+  });
+
+  test("an item moves to another room from its menu, and Undo moves it back", async ({
+    page,
+  }) => {
+    await page.goto("/items");
+    const seeded = await page.evaluate(async () => {
+      const session = await (await fetch("/api/v1/session")).json();
+      const post = async (path: string, body: object) => {
+        const response = await fetch(path, {
+          method: "POST",
+          headers: {
+            "X-CSRF-Token": session.csrfToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) throw new Error(`${path} ${response.status}`);
+        return response.json();
+      };
+      const porch = await post("/api/v1/groups/rooms", { name: "Porch" });
+      await post("/api/v1/groups/rooms", { name: "Loft" });
+      const ladder = await post("/api/v1/items", {
+        name: "Folding ladder",
+        room: "Porch",
+        notes: "Six steps",
+      });
+      return { porch: porch.id as number, ladder: ladder.id as number };
+    });
+    const ladder = async () =>
+      (await page.request.get(`/api/v1/items/${seeded.ladder}`)).json();
+    const openMove = async () => {
+      await page
+        .getByRole("button", { name: "Actions for Folding ladder" })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Move to another room" })
+        .click();
+      return page.getByRole("dialog", { name: "Move Folding ladder" });
+    };
+
+    await page.goto(`/items?room=${seeded.porch}`);
+    let dialog = await openMove();
+    await expect(dialog.getByLabel("Room")).toHaveValue("Porch");
+    await expect(dialog.getByRole("button", { name: "Move" })).toBeDisabled();
+    await dialog.getByLabel("Room").selectOption("Loft");
+    await capture(page, "03-move-to-room-dark");
+    await expectAccessible(page, "move to room");
+    await dialog.getByRole("button", { name: "Move" }).click();
+    await expect(page.getByText("Moved to Loft")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Folding ladder" }),
+    ).toHaveCount(0);
+    let saved = await ladder();
+    expect(saved.room?.name).toBe("Loft");
+    expect(saved.notes).toBe("Six steps");
+
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(
+      page.getByRole("link", { name: "Folding ladder" }),
+    ).toBeVisible();
+    saved = await ladder();
+    expect(saved.room?.name).toBe("Porch");
+
+    // From Home, out of every room.
+    await page.goto("/");
+    dialog = await openMove();
+    await dialog.getByLabel("Room").selectOption({ label: "No room" });
+    await dialog.getByRole("button", { name: "Move" }).click();
+    await expect(page.getByText("No longer in a room")).toBeVisible();
+    saved = await ladder();
+    expect(saved.room).toBeNull();
+    expect(saved.notes).toBe("Six steps");
+  });
+
   test("a preset fills only empty details and keeps what was typed", async ({
     page,
     context,

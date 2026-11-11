@@ -25,22 +25,25 @@ export function ImportPage() {
 /** Progress → review, or the problem screen; leaving never loses the link. */
 function ImportFlow({ importId }: { importId: string }) {
   const navigate = useNavigate();
-  const handedUrl = ((useLocation().state ?? {}) as AddItemState).url ?? "";
+  const handover = (useLocation().state ?? {}) as AddItemState;
+  const room = handover.room ?? "";
   const { draft, timedOut, loadError, expired, checkAgain } =
     useImportDraft(importId);
-  const sourceUrl = draft?.sourceUrl || handedUrl;
+  const sourceUrl = draft?.sourceUrl || handover.url || "";
+  // Going back to Add item keeps the link and the room it was started from.
+  const backToAdd: AddItemState = { url: sourceUrl, room };
 
   const goManual = (focusInvoice: boolean, fields?: Partial<ItemInput>) => {
     const state: ManualItemState = {
       url: sourceUrl || undefined,
       focusInvoice,
-      fields,
+      fields: { room, ...fields },
     };
     navigate(ROUTES.addManual, { state });
   };
   const cancelImport = () => importsApi.cancel(importId).catch(() => undefined);
   const retry = () => {
-    const state: AddItemState = { url: sourceUrl, autoStart: true };
+    const state: AddItemState = { ...backToAdd, autoStart: true };
     navigate(ROUTES.add, { replace: true, state });
   };
 
@@ -48,12 +51,13 @@ function ImportFlow({ importId }: { importId: string }) {
     return <Navigate to={ROUTES.items} replace />;
   }
   if (draft?.state === "cancelled") {
-    return <Navigate to={ROUTES.add} replace state={{ url: sourceUrl }} />;
+    return <Navigate to={ROUTES.add} replace state={backToAdd} />;
   }
   if (draft?.state === "done") {
     return (
       <ReviewImport
         draft={draft}
+        room={room}
         onAddManually={(fields) => goManual(false, fields)}
       />
     );
@@ -67,7 +71,7 @@ function ImportFlow({ importId }: { importId: string }) {
         host={draft?.sourceHost ?? ""}
         onCancel={() => {
           cancelImport();
-          navigate(ROUTES.add, { replace: true, state: { url: sourceUrl } });
+          navigate(ROUTES.add, { replace: true, state: backToAdd });
         }}
         onAddManually={() => {
           cancelImport();

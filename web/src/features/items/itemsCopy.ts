@@ -40,6 +40,15 @@ export const ITEMS_COPY = {
   movedToTrash: "Moved to Recently deleted",
   trashFailed: "Couldn't move the item to Recently deleted.",
   restoreFailed: "Couldn't restore the item.",
+  moveToRoom: "Move to another room",
+  moveTitle: (name: string) => `Move ${name}`,
+  moveRoomLabel: "Room",
+  noRoom: "No room",
+  move: "Move",
+  movedTo: (room: string) => `Moved to ${room}`,
+  movedOutOfRoom: "No longer in a room",
+  moveFailed:
+    "Couldn't move the item. It may have been changed somewhere else; try again.",
 } as const;
 
 export const DETAIL_COPY = {

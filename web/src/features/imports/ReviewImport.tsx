@@ -26,11 +26,17 @@ import styles from "./Import.module.css";
 
 interface ReviewImportProps {
   draft: ImportDraft;
+  /** The room Add item was opened from, or "". */
+  room: string;
   onAddManually: (fields: Partial<ItemInput>) => void;
 }
 
 /** Panel 05 with DEV-08: nothing is saved until the user presses Save. */
-export function ReviewImport({ draft, onAddManually }: ReviewImportProps) {
+export function ReviewImport({
+  draft,
+  room,
+  onAddManually,
+}: ReviewImportProps) {
   const { account } = useSession();
   const candidates = candidatesOf(draft);
   const [candidateIndex, setCandidateIndex] = useState(0);
@@ -38,6 +44,7 @@ export function ReviewImport({ draft, onAddManually }: ReviewImportProps) {
   const [input, setInput] = useState<ItemInput>(() => ({
     ...emptyItemInput(),
     ...fieldsFromCandidate(candidates[0]),
+    room,
   }));
   const [keptPhotoIds, setKeptPhotoIds] = useState(candidates[0].imageIds);
   const [mainPhotoId, setMainPhotoId] = useState<number | null>(
@@ -135,6 +142,7 @@ export function ReviewImport({ draft, onAddManually }: ReviewImportProps) {
           currency={account?.currency ?? ""}
           afterName={<ListingPrice candidate={candidate} draft={draft} />}
           pricePlaceholder={REVIEW_PRICE_PLACEHOLDER}
+          detailsOpen={room !== ""}
         />
       </div>
       <div className={styles.actions}>

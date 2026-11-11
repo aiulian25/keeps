@@ -176,6 +176,7 @@ export function ManualItemPage() {
           errors={fieldErrors}
           currency={account?.currency ?? ""}
           autoFocusName={!handover.focusInvoice}
+          detailsOpen={Boolean(start.input.room)}
           detailsStart={
             <div>
               <Button

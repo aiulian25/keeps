@@ -164,5 +164,12 @@ function RecentItems({
       </div>
     );
   }
-  return <ItemCollection items={recent.items} view="grid" onTrash={onTrash} />;
+  return (
+    <ItemCollection
+      items={recent.items}
+      view="grid"
+      onTrash={onTrash}
+      onMoved={recent.reload}
+    />
+  );
 }

@@ -15,6 +15,7 @@ import { PageHeader } from "../../components/shell/PageHeader";
 import { COMMON } from "../../constants/copy";
 import { SEARCH_DEBOUNCE_MS } from "../../constants/limits";
 import { ROUTES } from "../../constants/routes";
+import type { AddItemState } from "../add/manualState";
 import { RoomBanner } from "../organise/RoomBanner";
 import { FilterPanel } from "./FilterPanel";
 import { ItemCollection, ItemSkeleton, type ItemView } from "./ItemCollection";
@@ -144,7 +145,12 @@ function Results({
   }
   return (
     <>
-      <ItemCollection items={results.items} view={view} onTrash={onTrash} />
+      <ItemCollection
+        items={results.items}
+        view={view}
+        onTrash={onTrash}
+        onMoved={results.reload}
+      />
       {results.hasMore && (
         <div className={styles.loadMore}>
           <Button
@@ -171,6 +177,7 @@ export function ItemsPage() {
     (room) => String(room.id) === parameters.selectedRoom,
   );
   const countLabel = results.loading ? "" : ITEMS_COPY.count(results.total);
+  const addState: AddItemState = { room: selectedRoom?.name };
   const categories = useGroups("categories");
   const tags = useGroups("tags");
   const collections = useGroups("collections");
@@ -250,6 +257,7 @@ export function ItemsPage() {
         </form>
         <ButtonLink
           to={ROUTES.add}
+          state={addState}
           variant="primary"
           iconAfter={<Plus aria-hidden="true" />}
         >

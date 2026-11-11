@@ -32,6 +32,7 @@ function linkErrorFor(error: unknown) {
 export function AddItemPage() {
   const navigate = useNavigate();
   const incoming = (useLocation().state ?? {}) as AddItemState;
+  const room = incoming.room ?? "";
   const [url, setUrl] = useState(incoming.url ?? "");
   const [starting, setStarting] = useState(false);
   const [linkError, setLinkError] = useState({ message: "", code: "" });
@@ -43,10 +44,8 @@ export function AddItemPage() {
     setLinkError({ message: "", code: "" });
     try {
       const draft = await importsApi.start(link);
-      navigate(ROUTES.addImport(draft.id), {
-        replace: true,
-        state: { url: link },
-      });
+      const state: AddItemState = { url: link, room };
+      navigate(ROUTES.addImport(draft.id), { replace: true, state });
     } catch (error) {
       setLinkError(linkErrorFor(error));
       setStarting(false);
@@ -80,6 +79,7 @@ export function AddItemPage() {
     const state: ManualItemState = {
       url: trimmedUrl || undefined,
       focusInvoice,
+      fields: { room },
     };
     navigate(ROUTES.addManual, { state });
   };

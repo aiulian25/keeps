@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Home, ImageOff } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { attachmentUrl } from "../../api/client";
@@ -6,7 +7,9 @@ import { OverflowMenu } from "../../components/Bits";
 import { ROUTES } from "../../constants/routes";
 import { formatMoney, formatPurchaseDate } from "./itemFormat";
 import { ITEMS_COPY } from "./itemsCopy";
+import { MoveToRoomDialog } from "./MoveToRoomDialog";
 import type { ItemDetailState } from "./navigationState";
+import { useMoveItem } from "./useMoveItem";
 import styles from "./Items.module.css";
 
 export type ItemView = "grid" | "list";
@@ -18,6 +21,13 @@ interface ItemCollectionProps {
   items: ItemSummary[];
   view: ItemView;
   onTrash: (item: ItemSummary) => void;
+  /** Called after an item moved to another room, or the move was undone. */
+  onMoved: () => void;
+}
+
+interface ItemHandlers {
+  onTrash: (item: ItemSummary) => void;
+  onMove: (item: ItemSummary) => void;
 }
 
 function Thumbnail({
@@ -48,10 +58,8 @@ function Thumbnail({
 function ItemActions({
   item,
   onTrash,
-}: {
-  item: ItemSummary;
-  onTrash: (item: ItemSummary) => void;
-}) {
+  onMove,
+}: ItemHandlers & { item: ItemSummary }) {
   const navigate = useNavigate();
   return (
     <div className={styles.actions}>
@@ -68,6 +76,10 @@ function ItemActions({
               navigate(ROUTES.item(item.id), { state: editState }),
           },
           {
+            label: ITEMS_COPY.moveToRoom,
+            onSelect: () => onMove(item),
+          },
+          {
             label: ITEMS_COPY.moveToTrash,
             onSelect: () => onTrash(item),
             tone: "danger",
@@ -81,10 +93,8 @@ function ItemActions({
 function ItemCard({
   item,
   onTrash,
-}: {
-  item: ItemSummary;
-  onTrash: (item: ItemSummary) => void;
-}) {
+  onMove,
+}: ItemHandlers & { item: ItemSummary }) {
   return (
     <li className={styles.card}>
       <Thumbnail item={item} className={styles.cardPhoto} />
@@ -104,7 +114,7 @@ function ItemCard({
               {item.room.name}
             </span>
           )}
-          <ItemActions item={item} onTrash={onTrash} />
+          <ItemActions item={item} onTrash={onTrash} onMove={onMove} />
         </div>
       </div>
     </li>
@@ -114,10 +124,8 @@ function ItemCard({
 function ItemRow({
   item,
   onTrash,
-}: {
-  item: ItemSummary;
-  onTrash: (item: ItemSummary) => void;
-}) {
+  onMove,
+}: ItemHandlers & { item: ItemSummary }) {
   return (
     <li className={styles.row}>
       <Thumbnail item={item} className={styles.rowPhoto} />
@@ -134,28 +142,41 @@ function ItemRow({
       <span className={styles.rowPrice}>
         {item.pricePaid && formatMoney(item.pricePaid)}
       </span>
-      <ItemActions item={item} onTrash={onTrash} />
+      <ItemActions item={item} onTrash={onTrash} onMove={onMove} />
     </li>
   );
 }
 
 /** Photo cards (panel 03) or compact rows (UX-04); each item is one link. */
-export function ItemCollection({ items, view, onTrash }: ItemCollectionProps) {
-  if (view === "list") {
-    return (
-      <ul className={styles.list}>
-        {items.map((item) => (
-          <ItemRow key={item.id} item={item} onTrash={onTrash} />
-        ))}
-      </ul>
-    );
-  }
+export function ItemCollection({
+  items,
+  view,
+  onTrash,
+  onMoved,
+}: ItemCollectionProps) {
+  const [moving, setMoving] = useState<ItemSummary | null>(null);
+  const moveItem = useMoveItem();
+  const handlers: ItemHandlers = { onTrash, onMove: setMoving };
+  const listView = view === "list";
+  const entries = items.map((item) =>
+    listView ? (
+      <ItemRow key={item.id} item={item} {...handlers} />
+    ) : (
+      <ItemCard key={item.id} item={item} {...handlers} />
+    ),
+  );
   return (
-    <ul className={styles.grid}>
-      {items.map((item) => (
-        <ItemCard key={item.id} item={item} onTrash={onTrash} />
-      ))}
-    </ul>
+    <>
+      <ul className={listView ? styles.list : styles.grid}>{entries}</ul>
+      {moving && (
+        <MoveToRoomDialog
+          key={moving.id}
+          item={moving}
+          onMove={(item, room) => moveItem(item, room, onMoved)}
+          onClose={() => setMoving(null)}
+        />
+      )}
+    </>
   );
 }
 

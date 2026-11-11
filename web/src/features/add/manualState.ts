@@ -20,4 +20,6 @@ export interface ManualItemState {
 export interface AddItemState {
   url?: string;
   autoStart?: boolean;
+  /** The room open on the Items page: a new item starts in it. */
+  room?: string;
 }
